@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ekanda-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ekanda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ekanda}
+      POSTGRES_DB: ${POSTGRES_DB:-ekanda}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ekanda_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ekanda} -d ${POSTGRES_DB:-ekanda}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ekanda-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ekanda}:${POSTGRES_PASSWORD:-ekanda}@postgres:5432/${POSTGRES_DB:-ekanda}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-strong-secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    ports:
+      - "${PORT:-3000}:3000"
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+
+volumes:
+  ekanda_pg_data:

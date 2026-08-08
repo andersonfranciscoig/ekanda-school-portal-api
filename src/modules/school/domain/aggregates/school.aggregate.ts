@@ -1,0 +1,413 @@
+import { AggregateRoot } from '../../../../shared/domain/aggregate-root';
+import {
+  InvariantViolationException,
+} from '../../../../shared/domain/exceptions/domain.exception';
+import { Email } from '../../../../shared/domain/value-objects/email.vo';
+import { Phone } from '../../../../shared/domain/value-objects/phone.vo';
+import { SchoolStatus } from '../school.enums';
+import { SchoolSlug } from '../value-objects/school-slug.vo';
+import { SchoolLocation } from '../entities/school-location.entity';
+import { SchoolClass } from '../entities/school-class.entity';
+import { SchoolServiceOffer } from '../entities/school-service.entity';
+import { SchoolPrice } from '../entities/school-price.entity';
+import { SchoolGalleryItem } from '../entities/school-gallery-item.entity';
+import {
+  SchoolCreatedEvent,
+  SchoolPublishedEvent,
+  SchoolSubmittedForActivationEvent,
+  SchoolSuspendedEvent,
+  SchoolUpdatedEvent,
+} from '../events/school.events';
+import { InvalidSchoolDataException } from '../exceptions/school.exceptions';
+
+export type SchoolActivationSnapshot = {
+  hasLocation: boolean;
+  hasActiveClass: boolean;
+  hasValidSubscription: boolean;
+  hasMinimumProfile: boolean;
+};
+
+export class School extends AggregateRoot {
+  private constructor(
+    private readonly _id: string,
+    private _name: string,
+    private _slug: SchoolSlug,
+    private _description: string | null,
+    private _status: SchoolStatus,
+    private _phone: Phone | null,
+    private _email: Email | null,
+    private _website: string | null,
+    private _logoUrl: string | null,
+    private _coverImageUrl: string | null,
+    private _foundedAt: Date | null,
+    private _location: SchoolLocation | null,
+    private _classes: SchoolClass[],
+    private _services: SchoolServiceOffer[],
+    private _prices: SchoolPrice[],
+    private _gallery: SchoolGalleryItem[],
+    private readonly _createdAt: Date,
+    private _updatedAt: Date,
+  ) {
+    super();
+  }
+
+  static create(params: {
+    id: string;
+    name: string;
+    slug: SchoolSlug;
+    ownerUserId: string;
+    description?: string | null;
+    phone?: Phone | null;
+    email?: Email | null;
+    website?: string | null;
+    logoUrl?: string | null;
+    coverImageUrl?: string | null;
+    foundedAt?: Date | null;
+    location?: SchoolLocation | null;
+  }): School {
+    const name = School.assertValidName(params.name);
+    const description = School.assertValidDescription(params.description);
+    School.assertValidFoundedAt(params.foundedAt ?? null);
+
+    if (!params.slug?.value) {
+      throw new InvalidSchoolDataException('School slug is required');
+    }
+
+    const now = new Date();
+    const school = new School(
+      params.id,
+      name,
+      params.slug,
+      description,
+      SchoolStatus.DRAFT,
+      params.phone ?? null,
+      params.email ?? null,
+      params.website?.trim() || null,
+      params.logoUrl?.trim() || null,
+      params.coverImageUrl?.trim() || null,
+      params.foundedAt ?? null,
+      params.location ?? null,
+      [],
+      [],
+      [],
+      [],
+      now,
+      now,
+    );
+    school.addDomainEvent(
+      new SchoolCreatedEvent(params.id, params.ownerUserId, params.slug.value),
+    );
+    return school;
+  }
+
+  static rehydrate(params: {
+    id: string;
+    name: string;
+    slug: SchoolSlug;
+    description: string | null;
+    status: SchoolStatus;
+    phone: Phone | null;
+    email: Email | null;
+    website: string | null;
+    logoUrl: string | null;
+    coverImageUrl: string | null;
+    foundedAt: Date | null;
+    location: SchoolLocation | null;
+    classes: SchoolClass[];
+    services: SchoolServiceOffer[];
+    prices: SchoolPrice[];
+    gallery: SchoolGalleryItem[];
+    createdAt: Date;
+    updatedAt: Date;
+  }): School {
+    return new School(
+      params.id,
+      params.name,
+      params.slug,
+      params.description,
+      params.status,
+      params.phone,
+      params.email,
+      params.website,
+      params.logoUrl,
+      params.coverImageUrl,
+      params.foundedAt,
+      params.location,
+      params.classes,
+      params.services,
+      params.prices,
+      params.gallery,
+      params.createdAt,
+      params.updatedAt,
+    );
+  }
+
+  get id(): string {
+    return this._id;
+  }
+
+  get name(): string {
+    return this._name;
+  }
+
+  get slug(): SchoolSlug {
+    return this._slug;
+  }
+
+  get description(): string | null {
+    return this._description;
+  }
+
+  get status(): SchoolStatus {
+    return this._status;
+  }
+
+  get phone(): Phone | null {
+    return this._phone;
+  }
+
+  get email(): Email | null {
+    return this._email;
+  }
+
+  get website(): string | null {
+    return this._website;
+  }
+
+  get logoUrl(): string | null {
+    return this._logoUrl;
+  }
+
+  get coverImageUrl(): string | null {
+    return this._coverImageUrl;
+  }
+
+  get foundedAt(): Date | null {
+    return this._foundedAt;
+  }
+
+  get location(): SchoolLocation | null {
+    return this._location;
+  }
+
+  get classes(): readonly SchoolClass[] {
+    return this._classes;
+  }
+
+  get services(): readonly SchoolServiceOffer[] {
+    return this._services;
+  }
+
+  get prices(): readonly SchoolPrice[] {
+    return this._prices;
+  }
+
+  get gallery(): readonly SchoolGalleryItem[] {
+    return this._gallery;
+  }
+
+  get createdAt(): Date {
+    return this._createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this._updatedAt;
+  }
+
+  updateProfile(
+    params: {
+      name?: string;
+      description?: string | null;
+      phone?: Phone | null;
+      email?: Email | null;
+      website?: string | null;
+      logoUrl?: string | null;
+      coverImageUrl?: string | null;
+      foundedAt?: Date | null;
+    },
+    actorUserId?: string,
+  ): void {
+    if (params.name !== undefined) {
+      this._name = School.assertValidName(params.name);
+    }
+    if (params.description !== undefined) {
+      this._description = School.assertValidDescription(params.description);
+    }
+    if (params.phone !== undefined) this._phone = params.phone;
+    if (params.email !== undefined) this._email = params.email;
+    if (params.website !== undefined) {
+      this._website = params.website?.trim() || null;
+    }
+    if (params.logoUrl !== undefined) this._logoUrl = params.logoUrl;
+    if (params.coverImageUrl !== undefined) {
+      this._coverImageUrl = params.coverImageUrl;
+    }
+    if (params.foundedAt !== undefined) {
+      School.assertValidFoundedAt(params.foundedAt);
+      this._foundedAt = params.foundedAt;
+    }
+    this.touch();
+    if (actorUserId) {
+      this.addDomainEvent(new SchoolUpdatedEvent(this._id, actorUserId));
+    }
+  }
+
+  toSnapshot(): Record<string, unknown> {
+    return {
+      id: this._id,
+      name: this._name,
+      slug: this._slug.value,
+      description: this._description,
+      status: this._status,
+      phone: this._phone?.value ?? null,
+      email: this._email?.value ?? null,
+      website: this._website,
+      logoUrl: this._logoUrl,
+      coverImageUrl: this._coverImageUrl,
+      foundedAt: this._foundedAt?.toISOString() ?? null,
+    };
+  }
+
+  private static assertValidName(name: string): string {
+    const trimmed = name?.trim() ?? '';
+    if (trimmed.length < 3 || trimmed.length > 150) {
+      throw new InvalidSchoolDataException(
+        'School name must be between 3 and 150 characters',
+      );
+    }
+    return trimmed;
+  }
+
+  private static assertValidDescription(
+    description?: string | null,
+  ): string | null {
+    if (description == null || description.trim() === '') return null;
+    const trimmed = description.trim();
+    if (trimmed.length > 2000) {
+      throw new InvalidSchoolDataException(
+        'School description must be at most 2000 characters',
+      );
+    }
+    return trimmed;
+  }
+
+  private static assertValidFoundedAt(foundedAt: Date | null): void {
+    if (!foundedAt) return;
+    const date = foundedAt instanceof Date ? foundedAt : new Date(foundedAt);
+    if (Number.isNaN(date.getTime())) {
+      throw new InvalidSchoolDataException('Invalid foundedAt date');
+    }
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (date > today) {
+      throw new InvalidSchoolDataException('foundedAt cannot be in the future');
+    }
+  }
+
+  setLocation(location: SchoolLocation): void {
+    this._location = location;
+    this.touch();
+  }
+
+  addClass(schoolClass: SchoolClass): void {
+    this._classes.push(schoolClass);
+    this.touch();
+  }
+
+  addService(service: SchoolServiceOffer): void {
+    this._services.push(service);
+    this.touch();
+  }
+
+  addPrice(price: SchoolPrice): void {
+    this._prices.push(price);
+    this.touch();
+  }
+
+  addGalleryItem(item: SchoolGalleryItem): void {
+    this._gallery.push(item);
+    this.touch();
+  }
+
+  /**
+   * Publication / activation invariants.
+   * hasValidSubscription is evaluated via Domain Service / Policy (cross-context).
+   */
+  assertCanBePublished(snapshot: SchoolActivationSnapshot): void {
+    if (!snapshot.hasMinimumProfile) {
+      throw new InvariantViolationException(
+        'School without minimum profile required',
+      );
+    }
+    if (!snapshot.hasLocation) {
+      throw new InvariantViolationException('School without location');
+    }
+    if (!snapshot.hasActiveClass) {
+      throw new InvariantViolationException(
+        'School needs at least one active class',
+      );
+    }
+    if (!snapshot.hasValidSubscription) {
+      throw new InvariantViolationException(
+        'School needs a valid plan/subscription',
+      );
+    }
+  }
+
+  submitForActivation(snapshot: SchoolActivationSnapshot): void {
+    this.assertCanBePublished(snapshot);
+    if (
+      this._status !== SchoolStatus.DRAFT &&
+      this._status !== SchoolStatus.REJECTED &&
+      this._status !== SchoolStatus.PENDING_PAYMENT
+    ) {
+      throw new InvariantViolationException(
+        `Cannot submit school in state ${this._status}`,
+      );
+    }
+    this._status = SchoolStatus.PENDING_REVIEW;
+    this.touch();
+    this.addDomainEvent(new SchoolSubmittedForActivationEvent(this._id));
+  }
+
+  publish(snapshot: SchoolActivationSnapshot): void {
+    this.assertCanBePublished(snapshot);
+    this._status = SchoolStatus.ACTIVE;
+    this.touch();
+    this.addDomainEvent(new SchoolPublishedEvent(this._id));
+  }
+
+  suspend(reason?: string): void {
+    if (this._status !== SchoolStatus.ACTIVE) {
+      throw new InvariantViolationException(
+        'Only active schools can be suspended',
+      );
+    }
+    this._status = SchoolStatus.SUSPENDED;
+    this.touch();
+    this.addDomainEvent(new SchoolSuspendedEvent(this._id, reason));
+  }
+
+  reactivate(): void {
+    if (this._status !== SchoolStatus.SUSPENDED) {
+      throw new InvariantViolationException(
+        'Only suspended schools can be reactivated',
+      );
+    }
+    this._status = SchoolStatus.ACTIVE;
+    this.touch();
+  }
+
+  expire(): void {
+    this._status = SchoolStatus.EXPIRED;
+    this.touch();
+  }
+
+  hasMinimumProfile(): boolean {
+    return Boolean(this._name && this._slug && this._description);
+  }
+
+  private touch(): void {
+    this._updatedAt = new Date();
+  }
+}

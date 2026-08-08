@@ -1,0 +1,624 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  GUARDIAN
+  SCHOOL_OWNER
+  SCHOOL_ADMIN
+  EKANDA_ADMIN
+}
+
+enum SchoolMembershipRole {
+  OWNER
+  ADMIN
+}
+
+enum SchoolStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum PlanCode {
+  PRESENCE
+  MANAGEMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  MULTICAIXA_EXPRESS
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  DOCUMENT_REQUESTED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum ApplicationDocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REQUESTED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  REMOVED
+}
+
+enum NotificationType {
+  SYSTEM
+  APPLICATION
+  PAYMENT
+  SUBSCRIPTION
+  SCHOOL
+  SECURITY
+}
+
+enum Shift {
+  MORNING
+  AFTERNOON
+  FULL_DAY
+}
+
+enum BillingPeriod {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  YEARLY
+  ONE_TIME
+}
+
+enum GalleryMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNDISCLOSED
+}
+
+// ─────────────────────────────────────────────
+// User
+// ─────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  firstName     String
+  lastName      String
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String
+  role          UserRole @default(GUARDIAN)
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  phoneVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships              SchoolMembership[]
+  students                 Student[]                  @relation("GuardianStudents")
+  applicationsAsGuardian   Application[]              @relation("GuardianApplications")
+  applicationStatusChanges ApplicationStatusHistory[]
+  reviewedDocuments        ApplicationDocument[]      @relation("DocumentReviewer")
+  favorites                Favorite[]
+  reviews                  Review[]
+  searches                 Search[]
+  recommendations          Recommendation[]
+  notifications            Notification[]
+  auditLogs                AuditLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// School & related
+// ─────────────────────────────────────────────
+
+model School {
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String       @unique
+  description   String?
+  status        SchoolStatus @default(DRAFT)
+  phone         String?
+  email         String?
+  website       String?
+  logoUrl       String?
+  coverImageUrl String?
+  foundedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  memberships     SchoolMembership[]
+  location        SchoolLocation?
+  classes         SchoolClass[]
+  services        SchoolService[]
+  prices          SchoolPrice[]
+  gallery         SchoolGallery[]
+  applications    Application[]
+  subscriptions   Subscription[]
+  payments        Payment[]
+  favorites       Favorite[]
+  reviews         Review[]
+  recommendations Recommendation[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("schools")
+}
+
+model SchoolMembership {
+  id        String               @id @default(uuid()) @db.Uuid
+  userId    String               @db.Uuid
+  schoolId  String               @db.Uuid
+  role      SchoolMembershipRole
+  status    MembershipStatus     @default(INVITED)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+  @@index([schoolId])
+  @@index([userId])
+  @@index([status])
+  @@map("school_memberships")
+}
+
+model SchoolLocation {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @unique @db.Uuid
+  province     String
+  municipality String
+  district     String?
+  neighborhood String?
+  address      String?
+  latitude     Decimal? @db.Decimal(10, 7)
+  longitude    Decimal? @db.Decimal(10, 7)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([province])
+  @@index([municipality])
+  @@index([province, municipality])
+  @@map("school_locations")
+}
+
+model SchoolClass {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @db.Uuid
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  prices       SchoolPrice[]
+  applications Application[]
+
+  @@index([schoolId])
+  @@index([schoolId, isActive])
+  @@map("school_classes")
+}
+
+model SchoolService {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @db.Uuid
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([schoolId, isActive])
+  @@map("school_services")
+}
+
+model SchoolPrice {
+  id            String        @id @default(uuid()) @db.Uuid
+  schoolId      String        @db.Uuid
+  schoolClassId String?       @db.Uuid
+  name          String
+  amount        Decimal       @db.Decimal(12, 2)
+  currency      String        @default("Kz") @db.VarChar(8)
+  billingPeriod BillingPeriod
+  description   String?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolClass SchoolClass? @relation(fields: [schoolClassId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([schoolClassId])
+  @@index([schoolId, isActive])
+  @@map("school_prices")
+}
+
+model SchoolGallery {
+  id        String           @id @default(uuid()) @db.Uuid
+  schoolId  String           @db.Uuid
+  url       String
+  type      GalleryMediaType @default(IMAGE)
+  caption   String?
+  sortOrder Int              @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([schoolId, sortOrder])
+  @@map("school_galleries")
+}
+
+// ─────────────────────────────────────────────
+// Student & Applications
+// ─────────────────────────────────────────────
+
+model Student {
+  id             String   @id @default(uuid()) @db.Uuid
+  guardianId     String   @db.Uuid
+  firstName      String
+  lastName       String
+  birthDate      DateTime @db.Date
+  gender         Gender?
+  documentNumber String?
+  photoUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  guardian     User          @relation("GuardianStudents", fields: [guardianId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([guardianId])
+  @@index([documentNumber])
+  @@map("students")
+}
+
+model Application {
+  id             String            @id @default(uuid()) @db.Uuid
+  schoolId       String            @db.Uuid
+  studentId      String            @db.Uuid
+  guardianId     String            @db.Uuid
+  schoolClassId  String?           @db.Uuid
+  requestedShift Shift?
+  status         ApplicationStatus @default(SUBMITTED)
+  notes          String?
+  submittedAt    DateTime          @default(now())
+  reviewedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  school        School                     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student       Student                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian      User                       @relation("GuardianApplications", fields: [guardianId], references: [id], onDelete: Cascade)
+  schoolClass   SchoolClass?               @relation(fields: [schoolClassId], references: [id], onDelete: SetNull)
+  documents     ApplicationDocument[]
+  statusHistory ApplicationStatusHistory[]
+
+  @@index([schoolId])
+  @@index([guardianId])
+  @@index([studentId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([schoolId, status])
+  @@map("applications")
+}
+
+model ApplicationStatusHistory {
+  id              String             @id @default(uuid()) @db.Uuid
+  applicationId   String             @db.Uuid
+  fromStatus      ApplicationStatus?
+  toStatus        ApplicationStatus
+  changedByUserId String?            @db.Uuid
+  reason          String?
+  createdAt       DateTime           @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy   User?       @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([createdAt])
+  @@map("application_status_histories")
+}
+
+model ApplicationDocument {
+  id               String                    @id @default(uuid()) @db.Uuid
+  applicationId    String                    @db.Uuid
+  name             String
+  type             String
+  url              String
+  mimeType         String?
+  size             Int?
+  status           ApplicationDocumentStatus @default(PENDING)
+  reviewedByUserId String?                   @db.Uuid
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewedBy  User?       @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([status])
+  @@map("application_documents")
+}
+
+// ─────────────────────────────────────────────
+// Billing: Plans, Subscriptions, Payments
+// ─────────────────────────────────────────────
+
+model Plan {
+  id            String        @id @default(uuid()) @db.Uuid
+  code          PlanCode      @unique
+  name          String
+  description   String?
+  price         Decimal       @db.Decimal(12, 2)
+  currency      String        @default("Kz") @db.VarChar(8)
+  billingPeriod BillingPeriod @default(MONTHLY)
+  isActive      Boolean       @default(true)
+  isPublic      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  features      PlanFeature[]
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@index([isActive, isPublic])
+  @@map("plans")
+}
+
+model PlanFeature {
+  id          String   @id @default(uuid()) @db.Uuid
+  planId      String   @db.Uuid
+  code        String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, code])
+  @@index([planId])
+  @@map("plan_features")
+}
+
+model Subscription {
+  id        String             @id @default(uuid()) @db.Uuid
+  schoolId  String             @db.Uuid
+  planId    String             @db.Uuid
+  status    SubscriptionStatus @default(PENDING)
+  startDate DateTime?
+  endDate   DateTime?
+  autoRenew Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([schoolId])
+  @@index([status])
+  @@index([endDate])
+  @@index([schoolId, status])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                    String        @id @default(uuid()) @db.Uuid
+  schoolId              String        @db.Uuid
+  subscriptionId        String?       @db.Uuid
+  planId                String?       @db.Uuid
+  amount                Decimal       @db.Decimal(12, 2)
+  currency              String        @default("Kz") @db.VarChar(8)
+  method                PaymentMethod @default(MULTICAIXA_EXPRESS)
+  status                PaymentStatus @default(PENDING)
+  externalTransactionId String?
+  externalReference     String?
+  paidAt                DateTime?
+  failureReason         String?
+  metadata              Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  school       School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subscription Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan         Plan?          @relation(fields: [planId], references: [id], onDelete: SetNull)
+  events       PaymentEvent[]
+
+  @@index([schoolId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([externalTransactionId])
+  @@index([schoolId, status])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id              String    @id @default(uuid()) @db.Uuid
+  paymentId       String    @db.Uuid
+  eventType       String
+  externalEventId String?
+  payload         Json
+  processed       Boolean   @default(false)
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([externalEventId])
+  @@index([processed])
+  @@map("payment_events")
+}
+
+// ─────────────────────────────────────────────
+// Marketplace / Discovery
+// ─────────────────────────────────────────────
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  schoolId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+  @@index([userId])
+  @@index([schoolId])
+  @@map("favorites")
+}
+
+model Review {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  schoolId    String   @db.Uuid
+  rating      Int
+  comment     String?
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+  @@index([schoolId])
+  @@index([schoolId, isPublished])
+  @@map("reviews")
+}
+
+model Search {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  query     String
+  filters   Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("searches")
+}
+
+model Recommendation {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  schoolId  String   @db.Uuid
+  score     Decimal  @db.Decimal(5, 4)
+  reasons   Json?
+  createdAt DateTime @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([schoolId])
+  @@index([score])
+  @@map("recommendations")
+}
+
+// ─────────────────────────────────────────────
+// Notifications & Audit
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String
+  message   String
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([readAt])
+  @@index([userId, readAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String
+  entity      String
+  entityId    String?
+  oldData     Json?
+  newData     Json?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
