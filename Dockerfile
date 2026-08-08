@@ -1,19 +1,26 @@
-FROM node:22-alpine AS base
+# syntax=docker/dockerfile:1
+
+FROM node:22-alpine AS builder
 WORKDIR /app
 
-FROM base AS deps
-COPY package.json package-lock.json* ./
+# Host platforms (e.g. Render) often set NODE_ENV=production during build,
+# which makes `npm ci` skip devDependencies. Force a full install for Nest/tsc.
+ENV NODE_ENV=development
+
+COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npx prisma generate
-RUN npm run build
+COPY prisma ./prisma
+COPY nest-cli.json tsconfig.json tsconfig.build.json ./
+COPY src ./src
 
-FROM base AS runner
-ENV NODE_ENV=production
+RUN npx prisma generate \
+  && npx nest build \
+  && test -f dist/main.js
+
+FROM node:22-alpine AS runner
 WORKDIR /app
+ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nestjs
@@ -25,4 +32,4 @@ COPY --from=builder /app/prisma ./prisma
 
 USER nestjs
 EXPOSE 3000
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main.js"]

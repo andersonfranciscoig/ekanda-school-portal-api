@@ -4,5 +4,6 @@ dist
 .env
 coverage
 *.md
+*.tsbuildinfo
 .dockerignore
 Dockerfile
