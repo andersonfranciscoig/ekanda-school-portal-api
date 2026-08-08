@@ -32,7 +32,9 @@ import { UploadFileInput } from '../../../../../shared/application/ports/file-st
 
 type SchoolFiles = {
   logo?: Express.Multer.File[];
+  logoUrl?: Express.Multer.File[];
   coverImage?: Express.Multer.File[];
+  coverImageUrl?: Express.Multer.File[];
 };
 
 function toUploadInput(file?: Express.Multer.File): UploadFileInput | undefined {
@@ -43,6 +45,17 @@ function toUploadInput(file?: Express.Multer.File): UploadFileInput | undefined 
     mimeType: file.mimetype,
     size: file.size,
   };
+}
+
+function firstFile(
+  files: SchoolFiles | undefined,
+  ...keys: (keyof SchoolFiles)[]
+): Express.Multer.File | undefined {
+  for (const key of keys) {
+    const match = files?.[key]?.[0];
+    if (match) return match;
+  }
+  return undefined;
 }
 
 @ApiTags('schools')
@@ -65,8 +78,12 @@ export class SchoolsController {
   @UseInterceptors(
     FileFieldsInterceptor(
       [
+        // Prefer `logo` / `coverImage`; also accept `logoUrl` / `coverImageUrl`
+        // when clients send binary parts with DTO property names.
         { name: 'logo', maxCount: 1 },
+        { name: 'logoUrl', maxCount: 1 },
         { name: 'coverImage', maxCount: 1 },
+        { name: 'coverImageUrl', maxCount: 1 },
       ],
       {
         storage: memoryStorage(),
@@ -80,6 +97,9 @@ export class SchoolsController {
     @UploadedFiles() files: SchoolFiles | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const logoFile = firstFile(files, 'logo', 'logoUrl');
+    const coverImageFile = firstFile(files, 'coverImage', 'coverImageUrl');
+
     const { school, operation } = await this.createOrUpdateSchool.execute({
       actorUserId: user.id,
       actorRole: user.role,
@@ -89,15 +109,16 @@ export class SchoolsController {
       phone: dto.phone,
       email: dto.email,
       website: dto.website,
-      logoUrl: dto.logoUrl,
-      coverImageUrl: dto.coverImageUrl,
+      // Text URL only when no file was uploaded under the same field name.
+      logoUrl: logoFile ? undefined : dto.logoUrl,
+      coverImageUrl: coverImageFile ? undefined : dto.coverImageUrl,
       foundedAt: dto.foundedAt,
       province: dto.province,
       municipality: dto.municipality,
       neighborhood: dto.neighborhood,
       address: dto.address,
-      logoFile: toUploadInput(files?.logo?.[0]),
-      coverImageFile: toUploadInput(files?.coverImage?.[0]),
+      logoFile: toUploadInput(logoFile),
+      coverImageFile: toUploadInput(coverImageFile),
     });
 
     const detail =

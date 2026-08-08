@@ -47,16 +47,24 @@ export class CreateOrUpdateSchoolHttpDto {
   @IsUrl()
   website?: string;
 
-  @ApiPropertyOptional({ description: 'Logo URL (or multipart file `logo`)' })
+  @ApiPropertyOptional({
+    description:
+      'Logo as URL string, or multipart binary under `logo` / `logoUrl`',
+    type: 'string',
+    format: 'binary',
+  })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   logoUrl?: string;
 
   @ApiPropertyOptional({
-    description: 'Cover URL (or multipart file `coverImage`)',
+    description:
+      'Cover as URL string, or multipart binary under `coverImage` / `coverImageUrl`',
+    type: 'string',
+    format: 'binary',
   })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   coverImageUrl?: string;
 
   @ApiPropertyOptional({
