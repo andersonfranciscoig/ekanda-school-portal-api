@@ -13,16 +13,14 @@ import { PrismaService } from '../../../../shared/infrastructure/persistence/pri
 
 const schoolPublicInclude = {
   location: true,
-  classes: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
-  services: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
-  prices: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
-  gallery: { orderBy: { sortOrder: 'asc' as const } },
+  classes: { where: { isActive: true }, orderBy: { classLabel: 'asc' as const } },
+  services: { orderBy: { serviceId: 'asc' as const } },
+  price: true,
+  gallery: { orderBy: { order: 'asc' as const } },
+  educationLevels: true,
 } satisfies Prisma.SchoolInclude;
 
-/**
- * Read models HTTP — consultas de apresentação (não regras de domínio).
- * Mantém o contrato de resposta existente.
- */
+
 @Injectable()
 export class SchoolHttpQueryService {
   constructor(private readonly prisma: PrismaService) {}

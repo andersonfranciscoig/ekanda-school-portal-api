@@ -18,7 +18,7 @@ const schoolInclude = {
   location: true,
   classes: true,
   services: true,
-  prices: true,
+  price: true,
   gallery: true,
 } as const;
 
@@ -39,7 +39,7 @@ export class PrismaSchoolRepository implements SchoolRepository {
         website: data.website,
         logoUrl: data.logoUrl,
         coverImageUrl: data.coverImageUrl,
-        foundedAt: data.foundedAt,
+        foundedYear: data.foundedYear,
       },
     });
   }
@@ -113,7 +113,7 @@ export class PrismaSchoolRepository implements SchoolRepository {
             website: persistence.website,
             logoUrl: persistence.logoUrl,
             coverImageUrl: persistence.coverImageUrl,
-            foundedAt: persistence.foundedAt,
+            foundedYear: persistence.foundedYear,
             memberships: {
               create: {
                 userId: ownerUserId,
@@ -128,7 +128,6 @@ export class PrismaSchoolRepository implements SchoolRepository {
                       id: school.location.id,
                       province: school.location.address.province,
                       municipality: school.location.address.municipality,
-                      district: school.location.address.district,
                       neighborhood: school.location.address.neighborhood,
                       address: school.location.address.street,
                       latitude: school.location.coordinates?.latitude,
@@ -141,9 +140,19 @@ export class PrismaSchoolRepository implements SchoolRepository {
           include: schoolInclude,
         });
 
-        await tx.user.update({
-          where: { id: ownerUserId },
-          data: { role: UserRole.SCHOOL_OWNER },
+        await tx.userPlatformRole.upsert({
+          where: {
+            userId_role: {
+              userId: ownerUserId,
+              role: UserRole.SCHOOL_OWNER,
+            },
+          },
+          create: {
+            id: crypto.randomUUID(),
+            userId: ownerUserId,
+            role: UserRole.SCHOOL_OWNER,
+          },
+          update: {},
         });
 
         return record;

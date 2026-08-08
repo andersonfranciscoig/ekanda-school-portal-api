@@ -6,11 +6,9 @@ import { School } from '../../../domain/aggregates/school.aggregate';
 import { SchoolClass } from '../../../domain/entities/school-class.entity';
 import { SchoolGalleryItem } from '../../../domain/entities/school-gallery-item.entity';
 import { SchoolLocation } from '../../../domain/entities/school-location.entity';
-import { SchoolPrice } from '../../../domain/entities/school-price.entity';
 import { SchoolServiceOffer } from '../../../domain/entities/school-service.entity';
 import { SchoolStatus } from '../../../domain/school.enums';
 import { SchoolSlug } from '../../../domain/value-objects/school-slug.vo';
-import { Money } from '../../../../../shared/domain/value-objects/money.vo';
 
 type PrismaSchoolRecord = {
   id: string;
@@ -23,14 +21,16 @@ type PrismaSchoolRecord = {
   website: string | null;
   logoUrl: string | null;
   coverImageUrl: string | null;
-  foundedAt: Date | null;
+  foundedYear: number | null;
+  approximateStudents?: number | null;
+  instagram?: string | null;
+  facebook?: string | null;
   createdAt: Date;
   updatedAt: Date;
   location?: {
     id: string;
     province: string;
     municipality: string;
-    district: string | null;
     neighborhood: string | null;
     address: string | null;
     latitude: { toNumber(): number } | number | null;
@@ -38,31 +38,31 @@ type PrismaSchoolRecord = {
   } | null;
   classes?: Array<{
     id: string;
-    name: string;
-    description: string | null;
+    classLabel: string;
+    vacancies: number;
+    shift: string;
+    schedule: string | null;
     isActive: boolean;
   }>;
   services?: Array<{
     id: string;
-    name: string;
-    description: string | null;
-    isActive: boolean;
+    serviceId: string;
   }>;
-  prices?: Array<{
+  price?: {
     id: string;
-    name: string;
-    amount: { toNumber(): number } | number;
+    enrollmentFee: { toNumber(): number } | number | null;
+    tuitionFee: { toNumber(): number } | number | null;
+    transportFee: { toNumber(): number } | number | null;
+    mealFee: { toNumber(): number } | number | null;
+    otherFees: { toNumber(): number } | number | null;
     currency: string;
-    billingPeriod: string;
-    schoolClassId: string | null;
-    isActive: boolean;
-  }>;
+  } | null;
   gallery?: Array<{
     id: string;
     url: string;
-    type: string;
-    caption: string | null;
-    sortOrder: number;
+    kind: string;
+    order: number;
+    fileName: string | null;
   }>;
 };
 
@@ -74,12 +74,13 @@ export class SchoolMapper {
           address: Address.create({
             province: record.location.province,
             municipality: record.location.municipality,
-            district: record.location.district,
+            district: null,
             neighborhood: record.location.neighborhood,
             street: record.location.address,
           }),
           coordinates:
-            record.location.latitude != null && record.location.longitude != null
+            record.location.latitude != null &&
+            record.location.longitude != null
               ? Coordinates.create(
                   typeof record.location.latitude === 'number'
                     ? record.location.latitude
@@ -92,6 +93,12 @@ export class SchoolMapper {
         })
       : null;
 
+    // Domain ainda usa foundedAt (Date); persistência usa foundedYear.
+    const foundedAt =
+      record.foundedYear != null
+        ? new Date(Date.UTC(record.foundedYear, 0, 1))
+        : null;
+
     return School.rehydrate({
       id: record.id,
       name: record.name,
@@ -103,44 +110,33 @@ export class SchoolMapper {
       website: record.website,
       logoUrl: record.logoUrl,
       coverImageUrl: record.coverImageUrl,
-      foundedAt: record.foundedAt,
+      foundedAt,
       location,
       classes: (record.classes ?? []).map((c) =>
         SchoolClass.create({
           id: c.id,
-          name: c.name,
-          description: c.description,
+          name: c.classLabel,
+          description: c.schedule,
           isActive: c.isActive,
         }),
       ),
       services: (record.services ?? []).map((s) =>
         SchoolServiceOffer.create({
           id: s.id,
-          name: s.name,
-          description: s.description,
-          isActive: s.isActive,
+          name: s.serviceId,
+          description: null,
+          isActive: true,
         }),
       ),
-      prices: (record.prices ?? []).map((p) =>
-        SchoolPrice.create({
-          id: p.id,
-          name: p.name,
-          amount: Money.create(
-            typeof p.amount === 'number' ? p.amount : p.amount.toNumber(),
-            p.currency,
-          ),
-          billingPeriod: p.billingPeriod,
-          schoolClassId: p.schoolClassId,
-          isActive: p.isActive,
-        }),
-      ),
+      // SchoolPrice 1:1 (fees) — domínio de lista antiga ainda não alinhado.
+      prices: [],
       gallery: (record.gallery ?? []).map((g) =>
         SchoolGalleryItem.create({
           id: g.id,
           url: g.url,
-          type: g.type,
-          caption: g.caption,
-          sortOrder: g.sortOrder,
+          type: g.kind === 'VIDEO' ? 'VIDEO' : 'IMAGE',
+          caption: g.fileName,
+          sortOrder: g.order,
         }),
       ),
       createdAt: record.createdAt,
@@ -160,7 +156,9 @@ export class SchoolMapper {
       website: school.website,
       logoUrl: school.logoUrl,
       coverImageUrl: school.coverImageUrl,
-      foundedAt: school.foundedAt,
+      foundedYear: school.foundedAt
+        ? school.foundedAt.getUTCFullYear()
+        : null,
     };
   }
 }
