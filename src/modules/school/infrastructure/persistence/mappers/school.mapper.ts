@@ -69,8 +69,9 @@ type PrismaSchoolRecord = {
 export class SchoolMapper {
   static toDomain(record: PrismaSchoolRecord): School {
     const location = record.location
-      ? SchoolLocation.create({
+      ? SchoolLocation.rehydrate({
           id: record.location.id,
+          schoolId: record.id,
           address: Address.create({
             province: record.location.province,
             municipality: record.location.municipality,

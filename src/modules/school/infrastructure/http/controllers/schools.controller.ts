@@ -22,11 +22,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateOrUpdateSchoolUseCase } from '../../../application/use-cases/create-or-update-school.use-case';
+import { CreateOrUpdateSchoolLocationUseCase } from '../../../application/use-cases/create-or-update-school-location.use-case';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { ok } from '../../../../../shared/application/api-response';
 import { CreateOrUpdateSchoolHttpDto } from '../dto/create-or-update-school.http-dto';
+import { CreateOrUpdateSchoolLocationHttpDto } from '../dto/create-or-update-school-location.http-dto';
 import { SchoolHttpQueryService } from '../school-http-query.service';
 import { UploadFileInput } from '../../../../../shared/application/ports/file-storage.port';
 
@@ -63,6 +65,7 @@ function firstFile(
 export class SchoolsController {
   constructor(
     private readonly createOrUpdateSchool: CreateOrUpdateSchoolUseCase,
+    private readonly createOrUpdateSchoolLocation: CreateOrUpdateSchoolLocationUseCase,
     private readonly queries: SchoolHttpQueryService,
   ) {}
 
@@ -135,6 +138,43 @@ export class SchoolsController {
       operation === 'created'
         ? 'School created successfully'
         : 'School updated successfully',
+    );
+  }
+
+  @Post('location')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('application/json')
+  @ApiBody({ type: CreateOrUpdateSchoolLocationHttpDto })
+  @ApiOperation({
+    summary:
+      'CreateOrUpdate school location (POST JSON). No id = create; with id = update. 1:1 with School.',
+  })
+  async createOrUpdateLocation(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateOrUpdateSchoolLocationHttpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { location, operation } =
+      await this.createOrUpdateSchoolLocation.execute({
+        actorUserId: user.id,
+        id: dto.id,
+        schoolId: dto.schoolId,
+        province: dto.province,
+        municipality: dto.municipality,
+        neighborhood: dto.neighborhood,
+        address: dto.address,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+      });
+
+    res.status(
+      operation === 'created' ? HttpStatus.CREATED : HttpStatus.OK,
+    );
+
+    return ok(
+      location.toSnapshot(),
+      'School location saved successfully',
     );
   }
 

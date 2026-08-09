@@ -3,7 +3,6 @@ import { UseCase } from '../../../../shared/application/use-case';
 import { DomainEventPublisher } from '../../../../shared/domain/events/domain-event-publisher';
 import { Email } from '../../../../shared/domain/value-objects/email.vo';
 import { Phone } from '../../../../shared/domain/value-objects/phone.vo';
-import { Address } from '../../../../shared/domain/value-objects/address.vo';
 import {
   FILE_STORAGE,
   FileStorage,
@@ -117,12 +116,11 @@ export class CreateOrUpdateSchoolUseCase
       input.province && input.municipality
         ? SchoolLocation.create({
             id: crypto.randomUUID(),
-            address: Address.create({
-              province: input.province,
-              municipality: input.municipality,
-              neighborhood: input.neighborhood,
-              street: input.address,
-            }),
+            schoolId,
+            province: input.province,
+            municipality: input.municipality,
+            neighborhood: input.neighborhood,
+            address: input.address,
           })
         : null;
 

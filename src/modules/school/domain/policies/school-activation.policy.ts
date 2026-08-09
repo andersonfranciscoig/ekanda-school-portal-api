@@ -1,11 +1,7 @@
 import { SchoolActivationSnapshot } from '../aggregates/school.aggregate';
 import { School } from '../aggregates/school.aggregate';
 
-/**
- * Policy cross-cutting para elegibilidade de activação.
- * A verificação de subscrição válida é injectada (porta),
- * porque Billing é outro bounded context.
- */
+
 export class SchoolActivationPolicy {
   static evaluate(
     school: School,

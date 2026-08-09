@@ -41,3 +41,36 @@ export class FileUploadFailedException extends BusinessRuleViolationException {
     this.name = 'FileUploadFailedException';
   }
 }
+
+export class InvalidSchoolLocationException extends BusinessRuleViolationException {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidSchoolLocationException';
+  }
+}
+
+export class SchoolLocationNotFoundException extends EntityNotFoundException {
+  constructor(message = 'School location not found') {
+    super(message);
+    this.name = 'SchoolLocationNotFoundException';
+  }
+}
+
+export class SchoolLocationAlreadyExistsException extends ConflictDomainException {
+  constructor(
+    message = 'School already has a location. Send id to update.',
+  ) {
+    super(message);
+    this.name = 'SchoolLocationAlreadyExistsException';
+  }
+}
+
+export class SchoolLocationAccessDeniedException extends ForbiddenDomainException {
+  constructor(
+    message = 'Location does not belong to the specified school',
+  ) {
+    super(message);
+    this.name = 'SchoolLocationAccessDeniedException';
+  }
+}
+
