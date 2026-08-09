@@ -308,7 +308,6 @@ model SchoolClass {
   vacancies  Int      @default(0)
   shift      Shift
   schedule   String?
-  /// Mantido para gestão futura (desactivar turma sem apagar).
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
