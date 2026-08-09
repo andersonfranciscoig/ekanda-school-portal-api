@@ -24,6 +24,7 @@ import {
 import { CreateOrUpdateSchoolUseCase } from '../../../application/use-cases/create-or-update-school.use-case';
 import { CreateOrUpdateSchoolLocationUseCase } from '../../../application/use-cases/create-or-update-school-location.use-case';
 import { SyncSchoolEducationLevelsUseCase } from '../../../application/use-cases/sync-school-education-levels.use-case';
+import { CreateOrUpdateSchoolClassUseCase } from '../../../application/use-cases/create-or-update-school-class.use-case';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
@@ -31,6 +32,7 @@ import { ok } from '../../../../../shared/application/api-response';
 import { CreateOrUpdateSchoolHttpDto } from '../dto/create-or-update-school.http-dto';
 import { CreateOrUpdateSchoolLocationHttpDto } from '../dto/create-or-update-school-location.http-dto';
 import { SyncSchoolEducationLevelsHttpDto } from '../dto/sync-school-education-levels.http-dto';
+import { CreateOrUpdateSchoolClassHttpDto } from '../dto/create-or-update-school-class.http-dto';
 import { SchoolHttpQueryService } from '../school-http-query.service';
 import { UploadFileInput } from '../../../../../shared/application/ports/file-storage.port';
 
@@ -69,6 +71,7 @@ export class SchoolsController {
     private readonly createOrUpdateSchool: CreateOrUpdateSchoolUseCase,
     private readonly createOrUpdateSchoolLocation: CreateOrUpdateSchoolLocationUseCase,
     private readonly syncSchoolEducationLevels: SyncSchoolEducationLevelsUseCase,
+    private readonly createOrUpdateSchoolClass: CreateOrUpdateSchoolClassUseCase,
     private readonly queries: SchoolHttpQueryService,
   ) {}
 
@@ -204,6 +207,43 @@ export class SchoolsController {
     });
 
     return ok(result, 'Education levels synchronized successfully');
+  }
+
+  @Post('classes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('application/json')
+  @ApiBody({ type: CreateOrUpdateSchoolClassHttpDto })
+  @ApiOperation({
+    summary:
+      'CreateOrUpdate school class (POST JSON). No id = create; with id = update.',
+  })
+  async createOrUpdateClass(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateOrUpdateSchoolClassHttpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { schoolClass, operation } =
+      await this.createOrUpdateSchoolClass.execute({
+        actorUserId: user.id,
+        id: dto.id,
+        schoolId: dto.schoolId,
+        classLabel: dto.classLabel,
+        vacancies: dto.vacancies,
+        shift: dto.shift,
+        schedule: dto.schedule,
+      });
+
+    res.status(
+      operation === 'created' ? HttpStatus.CREATED : HttpStatus.OK,
+    );
+
+    return ok(
+      schoolClass.toSnapshot(),
+      operation === 'created'
+        ? 'School class created successfully'
+        : 'School class updated successfully',
+    );
   }
 
   @Get('mine')

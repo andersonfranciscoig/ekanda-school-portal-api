@@ -3,6 +3,7 @@ import { IdentityModule } from '../identity/identity.module';
 import { SCHOOL_REPOSITORY } from './domain/repositories/school.repository';
 import { SCHOOL_LOCATION_REPOSITORY } from './domain/repositories/school-location.repository';
 import { SCHOOL_EDUCATION_LEVEL_REPOSITORY } from './domain/repositories/school-education-level.repository';
+import { SCHOOL_CLASS_REPOSITORY } from './domain/repositories/school-class.repository';
 import { CreateOrUpdateSchoolUseCase } from './application/use-cases/create-or-update-school.use-case';
 import { CreateOrUpdateSchoolLocationUseCase } from './application/use-cases/create-or-update-school-location.use-case';
 import { SyncSchoolEducationLevelsUseCase } from './application/use-cases/sync-school-education-levels.use-case';
@@ -20,6 +21,7 @@ import { SchoolAccessAuthorizer } from './application/services/school-access.aut
 import { PrismaSchoolRepository } from './infrastructure/persistence/prisma/prisma-school.repository';
 import { PrismaSchoolLocationRepository } from './infrastructure/persistence/prisma/prisma-school-location.repository';
 import { PrismaSchoolEducationLevelRepository } from './infrastructure/persistence/prisma/prisma-school-education-level.repository';
+import { PrismaSchoolClassRepository } from './infrastructure/persistence/prisma/prisma-school-class.repository';
 import { SchoolsController } from './infrastructure/http/controllers/schools.controller';
 import { SchoolHttpQueryService } from './infrastructure/http/school-http-query.service';
 
@@ -52,6 +54,10 @@ const schoolUseCases = [
       provide: SCHOOL_EDUCATION_LEVEL_REPOSITORY,
       useClass: PrismaSchoolEducationLevelRepository,
     },
+    {
+      provide: SCHOOL_CLASS_REPOSITORY,
+      useClass: PrismaSchoolClassRepository,
+    },
     SchoolAccessAuthorizer,
     SchoolHttpQueryService,
     ...schoolUseCases,
@@ -60,6 +66,7 @@ const schoolUseCases = [
     SCHOOL_REPOSITORY,
     SCHOOL_LOCATION_REPOSITORY,
     SCHOOL_EDUCATION_LEVEL_REPOSITORY,
+    SCHOOL_CLASS_REPOSITORY,
     SchoolAccessAuthorizer,
     ...schoolUseCases,
   ],

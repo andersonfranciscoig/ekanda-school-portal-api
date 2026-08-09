@@ -88,3 +88,26 @@ export class DuplicateEducationLevelException extends BusinessRuleViolationExcep
   }
 }
 
+export class InvalidSchoolClassException extends BusinessRuleViolationException {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidSchoolClassException';
+  }
+}
+
+export class SchoolClassNotFoundException extends EntityNotFoundException {
+  constructor(message = 'School class not found') {
+    super(message);
+    this.name = 'SchoolClassNotFoundException';
+  }
+}
+
+export class SchoolClassAccessDeniedException extends ForbiddenDomainException {
+  constructor(
+    message = 'School class does not belong to this school',
+  ) {
+    super(message);
+    this.name = 'SchoolClassAccessDeniedException';
+  }
+}
+

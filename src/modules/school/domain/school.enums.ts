@@ -58,6 +58,13 @@ export enum SchoolClassShiftLabel {
   DUPLO = 'Duplo',
 }
 
+export enum SchoolClassShift {
+  MORNING = 'MORNING',
+  AFTERNOON = 'AFTERNOON',
+  NIGHT = 'NIGHT',
+  DOUBLE = 'DOUBLE',
+}
+
 export enum GalleryItemKind {
   PHOTO = 'photo',
   VIDEO = 'video',

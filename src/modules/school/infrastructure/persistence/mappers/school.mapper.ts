@@ -7,7 +7,7 @@ import { SchoolClass } from '../../../domain/entities/school-class.entity';
 import { SchoolGalleryItem } from '../../../domain/entities/school-gallery-item.entity';
 import { SchoolLocation } from '../../../domain/entities/school-location.entity';
 import { SchoolServiceOffer } from '../../../domain/entities/school-service.entity';
-import { SchoolStatus } from '../../../domain/school.enums';
+import { SchoolClassShift, SchoolStatus } from '../../../domain/school.enums';
 import { SchoolSlug } from '../../../domain/value-objects/school-slug.vo';
 
 type PrismaSchoolRecord = {
@@ -111,10 +111,13 @@ export class SchoolMapper {
       facebook: record.facebook ?? null,
       location,
       classes: (record.classes ?? []).map((c) =>
-        SchoolClass.create({
+        SchoolClass.rehydrate({
           id: c.id,
-          name: c.classLabel,
-          description: c.schedule,
+          schoolId: record.id,
+          classLabel: c.classLabel,
+          vacancies: c.vacancies,
+          shift: c.shift as SchoolClassShift,
+          schedule: c.schedule,
           isActive: c.isActive,
         }),
       ),
