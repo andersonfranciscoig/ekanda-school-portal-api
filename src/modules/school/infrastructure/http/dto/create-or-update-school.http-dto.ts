@@ -1,15 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDate,
   IsEmail,
+  IsInt,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
+
+function emptyToUndefined({ value }: { value: unknown }) {
+  if (value === '' || value === null || value === undefined) return undefined;
+  return value;
+}
+
+function toOptionalInt({ value }: { value: unknown }) {
+  if (value === '' || value === null || value === undefined) return undefined;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isNaN(n) ? value : n;
+}
 
 export class CreateOrUpdateSchoolHttpDto {
   @ApiPropertyOptional({
@@ -68,13 +82,46 @@ export class CreateOrUpdateSchoolHttpDto {
   coverImageUrl?: string;
 
   @ApiPropertyOptional({
+    example: 2005,
+    description: 'Year the school was founded (preferred over foundedAt).',
+  })
+  @IsOptional()
+  @Transform(toOptionalInt)
+  @IsInt()
+  @Min(1800)
+  @Max(new Date().getUTCFullYear())
+  foundedYear?: number;
+
+  @ApiPropertyOptional({
     example: '2005-03-15',
-    description: 'Foundation date (ISO 8601). Cannot be in the future.',
+    description:
+      'Foundation date (ISO 8601). Prefer foundedYear. Cannot be in the future.',
   })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   foundedAt?: Date;
+
+  @ApiPropertyOptional({ example: 450 })
+  @IsOptional()
+  @Transform(toOptionalInt)
+  @IsInt()
+  @Min(0)
+  approximateStudents?: number;
+
+  @ApiPropertyOptional({ example: '@colegiohorizonte' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @MaxLength(120)
+  instagram?: string;
+
+  @ApiPropertyOptional({ example: 'colegiohorizonte' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @MaxLength(120)
+  facebook?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

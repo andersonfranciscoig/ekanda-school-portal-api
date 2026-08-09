@@ -94,12 +94,6 @@ export class SchoolMapper {
         })
       : null;
 
-    // Domain ainda usa foundedAt (Date); persistência usa foundedYear.
-    const foundedAt =
-      record.foundedYear != null
-        ? new Date(Date.UTC(record.foundedYear, 0, 1))
-        : null;
-
     return School.rehydrate({
       id: record.id,
       name: record.name,
@@ -111,7 +105,10 @@ export class SchoolMapper {
       website: record.website,
       logoUrl: record.logoUrl,
       coverImageUrl: record.coverImageUrl,
-      foundedAt,
+      foundedYear: record.foundedYear ?? null,
+      approximateStudents: record.approximateStudents ?? null,
+      instagram: record.instagram ?? null,
+      facebook: record.facebook ?? null,
       location,
       classes: (record.classes ?? []).map((c) =>
         SchoolClass.create({
@@ -157,9 +154,10 @@ export class SchoolMapper {
       website: school.website,
       logoUrl: school.logoUrl,
       coverImageUrl: school.coverImageUrl,
-      foundedYear: school.foundedAt
-        ? school.foundedAt.getUTCFullYear()
-        : null,
+      foundedYear: school.foundedYear,
+      approximateStudents: school.approximateStudents,
+      instagram: school.instagram,
+      facebook: school.facebook,
     };
   }
 }

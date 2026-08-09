@@ -14,9 +14,7 @@ import {
   SchoolRepository,
 } from '../../domain/repositories/school.repository';
 
-/**
- * Autorização multi-tenant (Application) — separada das regras de domínio.
- */
+
 @Injectable()
 export class SchoolAccessAuthorizer {
   constructor(

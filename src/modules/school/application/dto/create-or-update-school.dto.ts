@@ -11,7 +11,11 @@ export type CreateOrUpdateSchoolAppDto = {
   website?: string;
   logoUrl?: string;
   coverImageUrl?: string;
+  foundedYear?: number;
   foundedAt?: Date;
+  approximateStudents?: number;
+  instagram?: string;
+  facebook?: string;
   province?: string;
   municipality?: string;
   neighborhood?: string;

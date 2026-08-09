@@ -20,7 +20,6 @@ export enum MembershipStatus {
   REMOVED = 'REMOVED',
 }
 
-/** Catalog of teaching levels offered by a school (FE contract). */
 export enum EducationLevelCode {
   CRECHE = 'creche',
   PRE_ESCOLAR = 'pre_escolar',
@@ -30,7 +29,15 @@ export enum EducationLevelCode {
   MEDIO = 'medio',
 }
 
-/** Catalog service IDs accepted by SyncSchoolServices (FE contract). */
+export const EDUCATION_LEVEL_CATALOG_ORDER: EducationLevelCode[] = [
+  EducationLevelCode.CRECHE,
+  EducationLevelCode.PRE_ESCOLAR,
+  EducationLevelCode.PRIMARIO,
+  EducationLevelCode.I_CICLO,
+  EducationLevelCode.II_CICLO,
+  EducationLevelCode.MEDIO,
+];
+
 export enum SchoolServiceCatalogId {
   TRANSPORTE = 'transporte',
   CANTINA = 'cantina',
@@ -44,7 +51,6 @@ export enum SchoolServiceCatalogId {
   EXTRA = 'extra',
 }
 
-/** Class shift labels as sent by the frontend form. */
 export enum SchoolClassShiftLabel {
   MANHA = 'Manhã',
   TARDE = 'Tarde',

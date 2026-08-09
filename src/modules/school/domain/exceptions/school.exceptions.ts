@@ -74,3 +74,17 @@ export class SchoolLocationAccessDeniedException extends ForbiddenDomainExceptio
   }
 }
 
+export class InvalidEducationLevelException extends BusinessRuleViolationException {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidEducationLevelException';
+  }
+}
+
+export class DuplicateEducationLevelException extends BusinessRuleViolationException {
+  constructor(message = 'Duplicate education levels are not allowed') {
+    super(message);
+    this.name = 'DuplicateEducationLevelException';
+  }
+}
+

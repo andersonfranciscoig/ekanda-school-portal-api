@@ -37,7 +37,11 @@ export type CreateOrUpdateSchoolInput = {
   website?: string;
   logoUrl?: string;
   coverImageUrl?: string;
+  foundedYear?: number;
   foundedAt?: Date;
+  approximateStudents?: number;
+  instagram?: string;
+  facebook?: string;
   province?: string;
   municipality?: string;
   neighborhood?: string;
@@ -51,10 +55,6 @@ export type CreateOrUpdateSchoolOutput = {
   operation: 'created' | 'updated';
 };
 
-/**
- * CreateOrUpdateSchool — apenas dados principais do colégio.
- * NÃO publica, NÃO cria subscrição, NÃO processa pagamento, NÃO ativa.
- */
 @Injectable()
 export class CreateOrUpdateSchoolUseCase
   implements UseCase<CreateOrUpdateSchoolInput, CreateOrUpdateSchoolOutput>
@@ -73,9 +73,9 @@ export class CreateOrUpdateSchoolUseCase
   async execute(
     input: CreateOrUpdateSchoolInput,
   ): Promise<CreateOrUpdateSchoolOutput> {
-    if (input.id) {
-      return this.update(input);
-    }
+
+    if (input.id) return this.update(input);
+    
     return this.create(input);
   }
 
@@ -98,9 +98,8 @@ export class CreateOrUpdateSchoolUseCase
         );
       }
     }
-    if (url !== undefined) {
-      return url.trim() || null;
-    }
+    if (url !== undefined) return url.trim() || null;
+    
     return undefined;
   }
 
@@ -150,11 +149,14 @@ export class CreateOrUpdateSchoolUseCase
       website: input.website,
       logoUrl,
       coverImageUrl,
+      foundedYear: input.foundedYear ?? null,
       foundedAt: input.foundedAt ?? null,
+      approximateStudents: input.approximateStudents ?? null,
+      instagram: input.instagram ?? null,
+      facebook: input.facebook ?? null,
       location,
     });
 
-    // Persistência atómica School + Membership OWNER (infra)
     const persisted = await this.schools.createWithOwner({
       school,
       ownerUserId: input.actorUserId,
@@ -182,10 +184,9 @@ export class CreateOrUpdateSchoolUseCase
     await this.access.assertCanManageSchool(input.actorUserId, schoolId);
 
     const school = await this.schools.findById(schoolId);
-    if (!school) {
-      // Não revelar existência noutros tenants — access já cobre a maioria
-      throw new SchoolNotFoundException();
-    }
+
+    if (!school) throw new SchoolNotFoundException();
+    
 
     const oldData = school.toSnapshot();
     const previousLogo = school.logoUrl;
@@ -208,11 +209,9 @@ export class CreateOrUpdateSchoolUseCase
         input.coverImageUrl,
       );
     } catch (error) {
-      // Upload falhou → manter URLs antigas (não alterar entidade)
       throw error;
     }
 
-    // Slug permanece estável — não regenerar no update
     school.updateProfile(
       {
         name: input.name,
@@ -222,7 +221,11 @@ export class CreateOrUpdateSchoolUseCase
         website: input.website,
         logoUrl: newLogoUrl,
         coverImageUrl: newCoverUrl,
+        foundedYear: input.foundedYear,
         foundedAt: input.foundedAt,
+        approximateStudents: input.approximateStudents,
+        instagram: input.instagram,
+        facebook: input.facebook,
       },
       input.actorUserId,
     );

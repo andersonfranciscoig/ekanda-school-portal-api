@@ -1,8 +1,13 @@
 import {
+  DuplicateEducationLevelException,
+  InvalidEducationLevelException,
+} from '../exceptions/school.exceptions';
+import {
+  EDUCATION_LEVEL_CATALOG_ORDER,
   EducationLevelCode,
-  SchoolServiceCatalogId,
-  SchoolClassShiftLabel,
   GalleryItemKind,
+  SchoolClassShiftLabel,
+  SchoolServiceCatalogId,
 } from '../school.enums';
 
 const EDUCATION_LEVEL_SET = new Set<string>(Object.values(EducationLevelCode));
@@ -14,9 +19,42 @@ const GALLERY_KIND_SET = new Set<string>(Object.values(GalleryItemKind));
 
 export function parseEducationLevelCode(value: string): EducationLevelCode {
   if (!EDUCATION_LEVEL_SET.has(value)) {
-    throw new Error(`Invalid education level: ${value}`);
+    throw new InvalidEducationLevelException(
+      `Invalid education level: ${value}`,
+    );
   }
   return value as EducationLevelCode;
+}
+
+
+export function parseEducationLevelList(
+  values: string[],
+): EducationLevelCode[] {
+  if (!Array.isArray(values)) {
+    throw new InvalidEducationLevelException('levels must be an array');
+  }
+
+  const seen = new Set<string>();
+  const parsed: EducationLevelCode[] = [];
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      throw new DuplicateEducationLevelException(
+        `Duplicate education level: ${value}`,
+      );
+    }
+    seen.add(value);
+    parsed.push(parseEducationLevelCode(value));
+  }
+
+  return sortEducationLevels(parsed);
+}
+
+export function sortEducationLevels(
+  levels: EducationLevelCode[],
+): EducationLevelCode[] {
+  const set = new Set(levels);
+  return EDUCATION_LEVEL_CATALOG_ORDER.filter((level) => set.has(level));
 }
 
 export function parseSchoolServiceCatalogId(

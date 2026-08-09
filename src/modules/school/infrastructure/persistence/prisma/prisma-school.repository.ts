@@ -40,6 +40,9 @@ export class PrismaSchoolRepository implements SchoolRepository {
         logoUrl: data.logoUrl,
         coverImageUrl: data.coverImageUrl,
         foundedYear: data.foundedYear,
+        approximateStudents: data.approximateStudents,
+        instagram: data.instagram,
+        facebook: data.facebook,
       },
     });
   }
@@ -114,6 +117,9 @@ export class PrismaSchoolRepository implements SchoolRepository {
             logoUrl: persistence.logoUrl,
             coverImageUrl: persistence.coverImageUrl,
             foundedYear: persistence.foundedYear,
+            approximateStudents: persistence.approximateStudents,
+            instagram: persistence.instagram,
+            facebook: persistence.facebook,
             memberships: {
               create: {
                 userId: ownerUserId,

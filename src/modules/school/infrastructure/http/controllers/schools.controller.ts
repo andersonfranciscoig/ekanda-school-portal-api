@@ -23,12 +23,14 @@ import {
 } from '@nestjs/swagger';
 import { CreateOrUpdateSchoolUseCase } from '../../../application/use-cases/create-or-update-school.use-case';
 import { CreateOrUpdateSchoolLocationUseCase } from '../../../application/use-cases/create-or-update-school-location.use-case';
+import { SyncSchoolEducationLevelsUseCase } from '../../../application/use-cases/sync-school-education-levels.use-case';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { ok } from '../../../../../shared/application/api-response';
 import { CreateOrUpdateSchoolHttpDto } from '../dto/create-or-update-school.http-dto';
 import { CreateOrUpdateSchoolLocationHttpDto } from '../dto/create-or-update-school-location.http-dto';
+import { SyncSchoolEducationLevelsHttpDto } from '../dto/sync-school-education-levels.http-dto';
 import { SchoolHttpQueryService } from '../school-http-query.service';
 import { UploadFileInput } from '../../../../../shared/application/ports/file-storage.port';
 
@@ -66,6 +68,7 @@ export class SchoolsController {
   constructor(
     private readonly createOrUpdateSchool: CreateOrUpdateSchoolUseCase,
     private readonly createOrUpdateSchoolLocation: CreateOrUpdateSchoolLocationUseCase,
+    private readonly syncSchoolEducationLevels: SyncSchoolEducationLevelsUseCase,
     private readonly queries: SchoolHttpQueryService,
   ) {}
 
@@ -112,10 +115,13 @@ export class SchoolsController {
       phone: dto.phone,
       email: dto.email,
       website: dto.website,
-      // Text URL only when no file was uploaded under the same field name.
       logoUrl: logoFile ? undefined : dto.logoUrl,
       coverImageUrl: coverImageFile ? undefined : dto.coverImageUrl,
+      foundedYear: dto.foundedYear,
       foundedAt: dto.foundedAt,
+      approximateStudents: dto.approximateStudents,
+      instagram: dto.instagram,
+      facebook: dto.facebook,
       province: dto.province,
       municipality: dto.municipality,
       neighborhood: dto.neighborhood,
@@ -176,6 +182,28 @@ export class SchoolsController {
       location.toSnapshot(),
       'School location saved successfully',
     );
+  }
+
+  @Post('education-levels')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('application/json')
+  @ApiBody({ type: SyncSchoolEducationLevelsHttpDto })
+  @ApiOperation({
+    summary:
+      'Sync school education levels (POST JSON). Request levels = final state.',
+  })
+  async syncEducationLevels(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SyncSchoolEducationLevelsHttpDto,
+  ) {
+    const result = await this.syncSchoolEducationLevels.execute({
+      actorUserId: user.id,
+      schoolId: dto.schoolId,
+      levels: dto.levels,
+    });
+
+    return ok(result, 'Education levels synchronized successfully');
   }
 
   @Get('mine')

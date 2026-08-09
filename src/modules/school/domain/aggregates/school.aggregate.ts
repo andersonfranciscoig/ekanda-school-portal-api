@@ -39,7 +39,10 @@ export class School extends AggregateRoot {
     private _website: string | null,
     private _logoUrl: string | null,
     private _coverImageUrl: string | null,
-    private _foundedAt: Date | null,
+    private _foundedYear: number | null,
+    private _approximateStudents: number | null,
+    private _instagram: string | null,
+    private _facebook: string | null,
     private _location: SchoolLocation | null,
     private _classes: SchoolClass[],
     private _services: SchoolServiceOffer[],
@@ -62,12 +65,23 @@ export class School extends AggregateRoot {
     website?: string | null;
     logoUrl?: string | null;
     coverImageUrl?: string | null;
+    foundedYear?: number | null;
     foundedAt?: Date | null;
+    approximateStudents?: number | null;
+    instagram?: string | null;
+    facebook?: string | null;
     location?: SchoolLocation | null;
   }): School {
     const name = School.assertValidName(params.name);
     const description = School.assertValidDescription(params.description);
-    School.assertValidFoundedAt(params.foundedAt ?? null);
+    const foundedYear = School.resolveFoundedYear(
+      params.foundedYear,
+      params.foundedAt,
+    );
+    School.assertValidFoundedYear(foundedYear);
+    const approximateStudents = School.assertValidApproximateStudents(
+      params.approximateStudents ?? null,
+    );
 
     if (!params.slug?.value) {
       throw new InvalidSchoolDataException('School slug is required');
@@ -85,7 +99,10 @@ export class School extends AggregateRoot {
       params.website?.trim() || null,
       params.logoUrl?.trim() || null,
       params.coverImageUrl?.trim() || null,
-      params.foundedAt ?? null,
+      foundedYear,
+      approximateStudents,
+      School.normalizeOptionalText(params.instagram, 120),
+      School.normalizeOptionalText(params.facebook, 120),
       params.location ?? null,
       [],
       [],
@@ -111,7 +128,10 @@ export class School extends AggregateRoot {
     website: string | null;
     logoUrl: string | null;
     coverImageUrl: string | null;
-    foundedAt: Date | null;
+    foundedYear: number | null;
+    approximateStudents: number | null;
+    instagram: string | null;
+    facebook: string | null;
     location: SchoolLocation | null;
     classes: SchoolClass[];
     services: SchoolServiceOffer[];
@@ -131,7 +151,10 @@ export class School extends AggregateRoot {
       params.website,
       params.logoUrl,
       params.coverImageUrl,
-      params.foundedAt,
+      params.foundedYear,
+      params.approximateStudents,
+      params.instagram,
+      params.facebook,
       params.location,
       params.classes,
       params.services,
@@ -182,8 +205,27 @@ export class School extends AggregateRoot {
     return this._coverImageUrl;
   }
 
+  get foundedYear(): number | null {
+    return this._foundedYear;
+  }
+
+  /** Derived from foundedYear for legacy callers. */
   get foundedAt(): Date | null {
-    return this._foundedAt;
+    return this._foundedYear != null
+      ? new Date(Date.UTC(this._foundedYear, 0, 1))
+      : null;
+  }
+
+  get approximateStudents(): number | null {
+    return this._approximateStudents;
+  }
+
+  get instagram(): string | null {
+    return this._instagram;
+  }
+
+  get facebook(): string | null {
+    return this._facebook;
   }
 
   get location(): SchoolLocation | null {
@@ -223,7 +265,11 @@ export class School extends AggregateRoot {
       website?: string | null;
       logoUrl?: string | null;
       coverImageUrl?: string | null;
+      foundedYear?: number | null;
       foundedAt?: Date | null;
+      approximateStudents?: number | null;
+      instagram?: string | null;
+      facebook?: string | null;
     },
     actorUserId?: string,
   ): void {
@@ -242,9 +288,24 @@ export class School extends AggregateRoot {
     if (params.coverImageUrl !== undefined) {
       this._coverImageUrl = params.coverImageUrl;
     }
-    if (params.foundedAt !== undefined) {
-      School.assertValidFoundedAt(params.foundedAt);
-      this._foundedAt = params.foundedAt;
+    if (params.foundedYear !== undefined || params.foundedAt !== undefined) {
+      const year = School.resolveFoundedYear(
+        params.foundedYear,
+        params.foundedAt,
+      );
+      School.assertValidFoundedYear(year);
+      this._foundedYear = year;
+    }
+    if (params.approximateStudents !== undefined) {
+      this._approximateStudents = School.assertValidApproximateStudents(
+        params.approximateStudents,
+      );
+    }
+    if (params.instagram !== undefined) {
+      this._instagram = School.normalizeOptionalText(params.instagram, 120);
+    }
+    if (params.facebook !== undefined) {
+      this._facebook = School.normalizeOptionalText(params.facebook, 120);
     }
     this.touch();
     if (actorUserId) {
@@ -264,7 +325,10 @@ export class School extends AggregateRoot {
       website: this._website,
       logoUrl: this._logoUrl,
       coverImageUrl: this._coverImageUrl,
-      foundedAt: this._foundedAt?.toISOString() ?? null,
+      foundedYear: this._foundedYear,
+      approximateStudents: this._approximateStudents,
+      instagram: this._instagram,
+      facebook: this._facebook,
     };
   }
 
@@ -291,17 +355,64 @@ export class School extends AggregateRoot {
     return trimmed;
   }
 
-  private static assertValidFoundedAt(foundedAt: Date | null): void {
-    if (!foundedAt) return;
-    const date = foundedAt instanceof Date ? foundedAt : new Date(foundedAt);
-    if (Number.isNaN(date.getTime())) {
-      throw new InvalidSchoolDataException('Invalid foundedAt date');
+  private static assertValidFoundedYear(foundedYear: number | null): void {
+    if (foundedYear == null) return;
+    if (!Number.isInteger(foundedYear)) {
+      throw new InvalidSchoolDataException('foundedYear must be an integer');
     }
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    if (date > today) {
-      throw new InvalidSchoolDataException('foundedAt cannot be in the future');
+    const currentYear = new Date().getUTCFullYear();
+    if (foundedYear < 1800 || foundedYear > currentYear) {
+      throw new InvalidSchoolDataException(
+        `foundedYear must be between 1800 and ${currentYear}`,
+      );
     }
+  }
+
+  private static assertValidApproximateStudents(
+    value: number | null,
+  ): number | null {
+    if (value == null) return null;
+    if (!Number.isInteger(value) || value < 0) {
+      throw new InvalidSchoolDataException(
+        'approximateStudents must be a non-negative integer',
+      );
+    }
+    return value;
+  }
+
+  private static resolveFoundedYear(
+    foundedYear?: number | null,
+    foundedAt?: Date | null,
+  ): number | null {
+    if (foundedYear !== undefined && foundedYear !== null) {
+      return foundedYear;
+    }
+    if (foundedAt != null) {
+      const date = foundedAt instanceof Date ? foundedAt : new Date(foundedAt);
+      if (Number.isNaN(date.getTime())) {
+        throw new InvalidSchoolDataException('Invalid foundedAt date');
+      }
+      return date.getUTCFullYear();
+    }
+    if (foundedYear === null || foundedAt === null) {
+      return null;
+    }
+    return null;
+  }
+
+  private static normalizeOptionalText(
+    value: string | null | undefined,
+    maxLength: number,
+  ): string | null {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (trimmed.length > maxLength) {
+      throw new InvalidSchoolDataException(
+        `Text must be at most ${maxLength} characters`,
+      );
+    }
+    return trimmed;
   }
 
   setLocation(location: SchoolLocation): void {

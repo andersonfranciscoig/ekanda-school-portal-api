@@ -33,18 +33,35 @@ describe('School Aggregate', () => {
     ).toThrow(InvalidSchoolDataException);
   });
 
-  it('rejects future foundedAt', () => {
-    const future = new Date();
-    future.setFullYear(future.getFullYear() + 1);
+  it('rejects future foundedYear', () => {
+    const futureYear = new Date().getUTCFullYear() + 1;
     expect(() =>
       School.create({
         id: 's1',
         name: 'Colégio Horizonte',
         slug: baseSlug,
         ownerUserId: 'u1',
-        foundedAt: future,
+        foundedYear: futureYear,
       }),
     ).toThrow(InvalidSchoolDataException);
+  });
+
+  it('persists social and approximateStudents on create', () => {
+    const school = School.create({
+      id: 's1',
+      name: 'Colégio Horizonte',
+      slug: baseSlug,
+      ownerUserId: 'u1',
+      foundedYear: 2005,
+      approximateStudents: 450,
+      instagram: '@colegiohorizonte',
+      facebook: 'colegiohorizonte',
+    });
+
+    expect(school.foundedYear).toBe(2005);
+    expect(school.approximateStudents).toBe(450);
+    expect(school.instagram).toBe('@colegiohorizonte');
+    expect(school.facebook).toBe('colegiohorizonte');
   });
 
   it('updates profile and emits SchoolUpdated when actor provided', () => {

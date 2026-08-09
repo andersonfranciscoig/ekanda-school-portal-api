@@ -124,17 +124,32 @@ describe('CreateOrUpdateSchoolUseCase', () => {
       ).rejects.toThrow();
     });
 
-    it('rejects future foundedAt', async () => {
-      const future = new Date();
-      future.setFullYear(future.getFullYear() + 2);
+    it('rejects future foundedYear', async () => {
       await expect(
         useCase.execute({
           actorUserId: 'owner-1',
           actorRole: UserRole.SCHOOL_OWNER,
           name: 'Colégio Horizonte',
-          foundedAt: future,
+          foundedYear: new Date().getUTCFullYear() + 2,
         }),
       ).rejects.toThrow();
+    });
+
+    it('creates with social fields, foundedYear and approximateStudents', async () => {
+      const result = await useCase.execute({
+        actorUserId: 'owner-1',
+        actorRole: UserRole.SCHOOL_OWNER,
+        name: 'Colégio Horizonte',
+        foundedYear: 2010,
+        approximateStudents: 320,
+        instagram: '@horizonte',
+        facebook: 'horizonte.ao',
+      });
+
+      expect(result.school.foundedYear).toBe(2010);
+      expect(result.school.approximateStudents).toBe(320);
+      expect(result.school.instagram).toBe('@horizonte');
+      expect(result.school.facebook).toBe('horizonte.ao');
     });
 
     it('uploads logo and cover and stores only URLs', async () => {
