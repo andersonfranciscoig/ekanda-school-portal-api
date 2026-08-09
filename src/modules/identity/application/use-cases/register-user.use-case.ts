@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { UseCase } from '../../../../shared/application/use-case';
 import {
   ConflictDomainException,
+  ForbiddenDomainException,
+  UnauthorizedDomainException,
 } from '../../../../shared/domain/exceptions/domain.exception';
 import { Email } from '../../../../shared/domain/value-objects/email.vo';
 import { Phone } from '../../../../shared/domain/value-objects/phone.vo';
@@ -16,6 +18,12 @@ import { TokenIssuer } from '../ports/token-issuer.port';
 export const PASSWORD_HASHER = Symbol('PASSWORD_HASHER');
 export const TOKEN_ISSUER = Symbol('TOKEN_ISSUER');
 
+/** Roles that anyone can self-register without authentication. */
+const PUBLIC_REGISTER_ROLES: ReadonlySet<UserRole> = new Set([
+  UserRole.GUARDIAN,
+  UserRole.SCHOOL_OWNER,
+]);
+
 export type RegisterUserInput = {
   firstName: string;
   lastName: string;
@@ -23,6 +31,9 @@ export type RegisterUserInput = {
   phone?: string;
   password: string;
   role?: UserRole;
+  /** Present when Authorization Bearer was sent (optional JWT). */
+  actorUserId?: string;
+  actorRole?: UserRole;
 };
 
 export type RegisterUserOutput = {
@@ -41,6 +52,9 @@ export class RegisterUserUseCase
   ) {}
 
   async execute(input: RegisterUserInput): Promise<RegisterUserOutput> {
+    const role = input.role ?? UserRole.GUARDIAN;
+    this.assertCanAssignRole(role, input.actorRole);
+
     const email = Email.create(input.email);
     if (await this.users.findByEmail(email.value)) {
       throw new ConflictDomainException('exists a user with this email');
@@ -61,7 +75,7 @@ export class RegisterUserUseCase
       email,
       phone,
       passwordHash,
-      role: input.role,
+      role,
     });
 
     const saved = await this.users.save(user);
@@ -72,5 +86,40 @@ export class RegisterUserUseCase
     });
 
     return { accessToken, user: saved.toPublic() };
+  }
+
+  private assertCanAssignRole(
+    role: UserRole,
+    actorRole?: UserRole,
+  ): void {
+    if (PUBLIC_REGISTER_ROLES.has(role)) {
+      return;
+    }
+
+    if (role === UserRole.EKANDA_ADMIN) {
+      if (!actorRole) {
+        throw new UnauthorizedDomainException(
+          'Authentication required to create EKANDA ADMIN',
+        );
+      }
+      if (actorRole !== UserRole.EKANDA_ADMIN) {
+        throw new ForbiddenDomainException(
+          'Only EKANDA_ADMIN can create platform admins',
+        );
+      }
+      return;
+    }
+
+    // SCHOOL_ADMIN and any future privileged roles: only platform admin.
+    if (!actorRole) {
+      throw new UnauthorizedDomainException(
+        `Authentication required to create role ${role}`,
+      );
+    }
+    if (actorRole !== UserRole.EKANDA_ADMIN) {
+      throw new ForbiddenDomainException(
+        `Only EKANDA_ADMIN can assign role ${role}`,
+      );
+    }
   }
 }

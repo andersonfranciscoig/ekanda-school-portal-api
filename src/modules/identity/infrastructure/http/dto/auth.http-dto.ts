@@ -39,7 +39,11 @@ export class RegisterHttpDto {
   @MaxLength(128)
   password!: string;
 
-  @ApiPropertyOptional({ enum: UserRole })
+  @ApiPropertyOptional({
+    enum: UserRole,
+    description:
+      'GUARDIAN / SCHOOL_OWNER: público. EKANDA_ADMIN / SCHOOL_ADMIN: requer Bearer de EKANDA_ADMIN.',
+  })
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;

@@ -38,9 +38,7 @@ export class User extends AggregateRoot {
     role?: UserRole;
   }): User {
     const now = new Date();
-    const role = params.role === UserRole.EKANDA_ADMIN
-      ? UserRole.GUARDIAN
-      : (params.role ?? UserRole.GUARDIAN);
+    const role = params.role ?? UserRole.GUARDIAN;
 
     return new User(
       params.id,
