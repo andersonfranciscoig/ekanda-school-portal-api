@@ -83,6 +83,15 @@ const STOP_LOCATION = new Set([
   'sim',
   'nao',
   'não',
+  'ecosistema',
+  'ecossistema',
+  'ekanda',
+  'sugestao',
+  'sugestão',
+  'sugestoes',
+  'sugestões',
+  'todos',
+  'todas',
 ]);
 
 function normalize(text: string) {
@@ -222,14 +231,19 @@ function extractLocation(text: string): {
     return out;
   }
 
+  // Evitar "no ecossistema" / "em Angola" genéricos — só padrões explícitos
   const near = text.match(
-    /(?:estou\s+em|vivo\s+em|em|no|na|munic[ií]pio\s+de)\s+([A-Za-zÀ-ú][A-Za-zÀ-ú\s]{2,30})/i,
+    /(?:estou\s+em|vivo\s+em|moro\s+em|munic[ií]pio\s+(?:de|em))\s+([A-Za-zÀ-ú][A-Za-zÀ-ú\s]{2,30})/i,
   );
   if (near?.[1]) {
     const candidate = near[1].trim().replace(/\s+/g, ' ');
     const first = candidate.split(/\s+/)[0] ?? candidate;
     if (!STOP_LOCATION.has(normalize(first)) && !STOP_LOCATION.has(normalize(candidate))) {
-      if (!/classe|transporte|trasporte|col[eé]gio|escola|or[cç]amento|prefer/i.test(candidate)) {
+      if (
+        !/classe|transporte|trasporte|col[eé]gio|escola|or[cç]amento|prefer|ecos+istema|ekanda/i.test(
+          candidate,
+        )
+      ) {
         out.municipio = candidate;
       }
     }
@@ -403,6 +417,23 @@ export function parseConciergeTurnDeterministic(
     softAdjust = 'more_options';
   }
 
+  // "todos os colégios" / ecossistema Ekanda → browse amplo
+  const browseAll =
+    /\btodos\s+os\s+col[eé]gios\b/i.test(text) ||
+    /\btodas\s+as\s+escolas\b/i.test(text) ||
+    /\becos+istema\s+ekanda\b/i.test(text) ||
+    /\bsugest[oõ]es?\s+de\s+todos\b/i.test(text) ||
+    /\blistar\s+(os\s+)?col[eé]gios\b/i.test(text);
+
+  if (browseAll) {
+    patch.municipio = '';
+    patch.provincia = current.provincia || '';
+    if (patch.precoMax == null && current.precoMax == null) patch.precoMax = 150000;
+    if (patch.transporte == null && current.transporte === null) patch.transporte = false;
+    if (!patch.classe && !current.classe) patch.classe = '1.ª classe';
+    softAdjust = softAdjust ?? 'more_options';
+  }
+
   const merged = mergeNeeds(current, patch);
   const missing = nextMissingField(merged);
   const ready = isNeedsReady(merged);
@@ -445,8 +476,10 @@ export function parseConciergeTurnDeterministic(
     actions.shouldSearch = true;
     return {
       needsPatch: patch,
-      reply: 'Vou ajustar a procura com base no seu pedido.',
-      intent: 'soft_adjust',
+      reply: browseAll
+        ? 'Claro. Vou listar os colégios disponíveis no ecossistema Ekanda.'
+        : 'Vou ajustar a procura com base no seu pedido.',
+      intent: browseAll ? 'ready_to_search' : 'soft_adjust',
       actions,
     };
   }
