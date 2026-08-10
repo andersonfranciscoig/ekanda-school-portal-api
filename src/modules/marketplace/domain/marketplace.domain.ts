@@ -85,8 +85,28 @@ export class Favorite {
     id: string;
     userId: string;
     schoolId: string;
+    createdAt?: Date;
   }): Favorite {
-    return new Favorite(params.id, params.userId, params.schoolId, new Date());
+    return new Favorite(
+      params.id,
+      params.userId,
+      params.schoolId,
+      params.createdAt ?? new Date(),
+    );
+  }
+
+  static rehydrate(params: {
+    id: string;
+    userId: string;
+    schoolId: string;
+    createdAt: Date;
+  }): Favorite {
+    return new Favorite(
+      params.id,
+      params.userId,
+      params.schoolId,
+      params.createdAt,
+    );
   }
 
   get id(): string {
@@ -100,6 +120,10 @@ export class Favorite {
   get schoolId(): string {
     return this._schoolId;
   }
+
+  get createdAt(): Date {
+    return this._createdAt;
+  }
 }
 
 export const REVIEW_REPOSITORY = Symbol('REVIEW_REPOSITORY');
@@ -111,9 +135,14 @@ export interface ReviewRepository {
 }
 
 export interface FavoriteRepository {
-  add(favorite: Favorite): Promise<void>;
-  remove(userId: string, schoolId: string): Promise<void>;
+  add(favorite: Favorite): Promise<Favorite>;
+  remove(userId: string, schoolId: string): Promise<boolean>;
   exists(userId: string, schoolId: string): Promise<boolean>;
+  findByUserAndSchool(
+    userId: string,
+    schoolId: string,
+  ): Promise<Favorite | null>;
+  listByUserId(userId: string): Promise<Favorite[]>;
 }
 
 /**
