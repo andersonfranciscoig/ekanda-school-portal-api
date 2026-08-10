@@ -17,6 +17,61 @@ describe('parseConciergeTurnDeterministic', () => {
     expect(result.intent).toBe('ready_to_search');
   });
 
+  it('does not treat "perto de mim" as municipio and reads Luanda', () => {
+    const result = parseConciergeTurnDeterministic(
+      'Procuro um colégio perto de mim, estou em Luanda',
+      EMPTY_NEEDS,
+    );
+
+    expect(result.needsPatch.municipio).not.toBe('mim');
+    expect(result.needsPatch.provincia).toBe('Luanda');
+    expect(result.needsPatch.municipio).toBe('Luanda');
+    expect(result.reply.toLowerCase()).not.toContain('anotei mim');
+  });
+
+  it('treats "qualquer valor" / "sem preferência" as flexible budget', () => {
+    const base = {
+      ...EMPTY_NEEDS,
+      municipio: 'Luanda',
+      classe: 'Pré-escolar',
+    };
+
+    const a = parseConciergeTurnDeterministic('qualquer valor', base);
+    expect(a.needsPatch.precoMax).toBe(150000);
+
+    const b = parseConciergeTurnDeterministic('sem preferencia', base);
+    expect(b.needsPatch.precoMax).toBe(150000);
+    expect(b.needsPatch.municipio).toBeUndefined();
+  });
+
+  it('accepts short yes/no/optional when awaiting transporte', () => {
+    const awaiting = {
+      ...EMPTY_NEEDS,
+      municipio: 'Luanda',
+      classe: 'Pré-escolar',
+      precoMax: 45000,
+      transporte: null,
+    };
+
+    expect(parseConciergeTurnDeterministic('sim', awaiting).needsPatch.transporte).toBe(
+      true,
+    );
+    expect(parseConciergeTurnDeterministic('Não', awaiting).needsPatch.transporte).toBe(
+      false,
+    );
+    expect(
+      parseConciergeTurnDeterministic('não preciso', awaiting).needsPatch.transporte,
+    ).toBe(false);
+    expect(
+      parseConciergeTurnDeterministic('E opcional o trasporte escolar', awaiting)
+        .needsPatch.transporte,
+    ).toBe(false);
+    expect(
+      parseConciergeTurnDeterministic('Podemos avançar', awaiting).needsPatch
+        .transporte,
+    ).toBe(false);
+  });
+
   it('asks for the next missing field when incomplete', () => {
     const result = parseConciergeTurnDeterministic(
       'Quero um colégio em Belas',
@@ -30,16 +85,13 @@ describe('parseConciergeTurnDeterministic', () => {
   });
 
   it('detects compareTop intent', () => {
-    const result = parseConciergeTurnDeterministic(
-      'Quero comparar os dois',
-      {
-        ...EMPTY_NEEDS,
-        municipio: 'Talatona',
-        classe: '5.ª classe',
-        precoMax: 50000,
-        transporte: true,
-      },
-    );
+    const result = parseConciergeTurnDeterministic('Quero comparar os dois', {
+      ...EMPTY_NEEDS,
+      municipio: 'Talatona',
+      classe: '5.ª classe',
+      precoMax: 50000,
+      transporte: true,
+    });
 
     expect(result.actions.compareTop).toBe(2);
     expect(result.intent).toBe('compare');

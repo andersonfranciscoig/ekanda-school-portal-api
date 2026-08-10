@@ -20,6 +20,7 @@ async function bootstrap() {
       'Accept',
       'Origin',
       'X-Requested-With',
+      'X-Device-Id',
     ],
   });
 

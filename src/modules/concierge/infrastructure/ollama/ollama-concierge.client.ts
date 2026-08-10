@@ -5,6 +5,7 @@ import {
   NeedsProfile,
   isNeedsReady,
   mergeNeeds,
+  nextMissingField,
 } from '../../domain/concierge.types';
 import { parseConciergeTurnDeterministic } from '../../domain/services/deterministic-needs.parser';
 
@@ -18,8 +19,10 @@ export class OllamaConciergeClient {
     message: string,
     needs: NeedsProfile,
   ): Promise<ConciergeLlmResult> {
+    const deterministic = parseConciergeTurnDeterministic(message, needs);
+
     if (!this.isEnabled()) {
-      return parseConciergeTurnDeterministic(message, needs);
+      return deterministic;
     }
 
     const baseUrl = this.config
@@ -34,21 +37,29 @@ export class OllamaConciergeClient {
       this.logger.warn(
         'OLLAMA_ENABLED=true but OLLAMA_BASE_URL is empty; using deterministic parser',
       );
-      return parseConciergeTurnDeterministic(message, needs);
+      return deterministic;
     }
 
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const awaiting = nextMissingField(needs);
 
       const system = `És o Ekanda Concierge (Angola).
 Não inventes escolas nem preços.
-Pergunta um campo em falta de cada vez (ordem: município → classe → orçamento → transporte).
-Classes: Creche, Pré-escolar, 1.ª–12.ª classe.
-Orçamento em Kz (número).
-"Perto de mim" sem localização → pedir município (não inventar).
-Respostas curtas, claras, em português de Angola, sem markdown pesado.
-Responde APENAS JSON válido com este formato:
+Pergunta UM campo em falta de cada vez (ordem: município → classe → orçamento → transporte).
+Campo actualmente em falta: ${awaiting ?? 'nenhum'}.
+
+Regras de extracção:
+- "perto de mim" NÃO é município. Se disser "estou em Luanda", use provincia=Luanda e municipio=Luanda (ou peça município).
+- Nunca grave palavras como "mim", "preferência", "qualquer" como município.
+- Orçamento: extrair número em Kz. "qualquer valor" / "sem preferência" / "indiferente" → precoMax=150000.
+- Transporte: "sim"/"não"/"nao"/"opcional"/"não preciso"/"indiferente" quando a pergunta é transporte.
+  - opcional / não preciso / indiferente → transporte=false
+  - sim / preciso → transporte=true
+- Classes: Creche, Pré-escolar, 1.ª–12.ª classe.
+Respostas curtas em português de Angola.
+Responde APENAS JSON válido:
 {
   "needsPatch": { "municipio"?: string, "provincia"?: string, "classe"?: string, "precoMax"?: number|null, "transporte"?: boolean|null, "cantina"?: boolean|null, "ingles"?: boolean|null, "informatica"?: boolean|null, "integral"?: boolean|null, "tipoEnsino"?: string, "turno"?: string },
   "reply": string,
@@ -77,6 +88,7 @@ Responde APENAS JSON válido com este formato:
               role: 'user',
               content: JSON.stringify({
                 currentNeeds: needs,
+                awaitingField: awaiting,
                 message,
                 readyHint: isNeedsReady(needs),
               }),
@@ -98,15 +110,71 @@ Responde APENAS JSON válido com este formato:
       };
       const content = payload.message?.content ?? '';
       const parsed = JSON.parse(content) as ConciergeLlmResult;
-      return this.normalizeLlmResult(parsed, needs);
+      return this.mergeWithDeterministic(
+        this.normalizeLlmResult(parsed, needs),
+        deterministic,
+        needs,
+      );
     } catch (error) {
       this.logger.warn(
         `Ollama unavailable, using deterministic parser: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      return parseConciergeTurnDeterministic(message, needs);
+      return deterministic;
     }
+  }
+
+  /**
+   * Extracções determinísticas ganham nos campos estruturados;
+   * o LLM pode melhorar a reply se o perfil ainda estiver incompleto.
+   */
+  private mergeWithDeterministic(
+    llm: ConciergeLlmResult,
+    det: ConciergeLlmResult,
+    current: NeedsProfile,
+  ): ConciergeLlmResult {
+    const patch: Partial<NeedsProfile> = {
+      ...llm.needsPatch,
+      ...det.needsPatch,
+    };
+
+    // Evitar lixo do LLM em município
+    if (
+      patch.municipio &&
+      /^(mim|prefer[eê]ncia|pereferencia|qualquer|valor|aqui)$/i.test(
+        patch.municipio.trim(),
+      )
+    ) {
+      delete patch.municipio;
+    }
+
+    const merged = mergeNeeds(current, patch);
+    const ready = isNeedsReady(merged);
+    const shouldSearch =
+      Boolean(det.actions.shouldSearch) ||
+      Boolean(llm.actions?.shouldSearch) ||
+      ready;
+
+    const reply =
+      det.actions.shouldSearch || det.intent === 'ready_to_search'
+        ? det.reply
+        : typeof llm.reply === 'string' && llm.reply.trim()
+          ? llm.reply.trim()
+          : det.reply;
+
+    return {
+      needsPatch: patch,
+      reply,
+      intent: ready
+        ? 'ready_to_search'
+        : (det.intent ?? llm.intent ?? 'ask_question'),
+      actions: {
+        shouldSearch,
+        compareTop: det.actions.compareTop ?? llm.actions?.compareTop ?? null,
+        softAdjust: det.actions.softAdjust ?? llm.actions?.softAdjust ?? null,
+      },
+    };
   }
 
   private isEnabled(): boolean {
@@ -136,11 +204,6 @@ Responde APENAS JSON válido com este formato:
           : null,
       softAdjust: raw.actions?.softAdjust ?? null,
     };
-    if (actions.compareTop || actions.softAdjust) {
-      // keep as provided
-    } else if (ready) {
-      actions.shouldSearch = true;
-    }
 
     return {
       needsPatch: patch,
