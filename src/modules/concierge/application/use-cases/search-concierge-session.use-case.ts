@@ -53,7 +53,8 @@ export class SearchConciergeSessionUseCase
 
     if (matches.items.length === 0 && relaxIfEmpty) {
       relaxed = true;
-      const relaxedNeeds: NeedsProfile = {
+      // 1) sem serviços/tipo + orçamento ×1.25
+      let relaxedNeeds: NeedsProfile = {
         ...needs,
         transporte: null,
         cantina: null,
@@ -66,6 +67,26 @@ export class SearchConciergeSessionUseCase
       };
       matches = await this.runSearch(relaxedNeeds, limit);
       totalAnalisados = Math.max(totalAnalisados, matches.totalAnalisados);
+
+      // 2) alargar localização: só província (ex.: Talatona → Luanda)
+      if (matches.items.length === 0 && needs.provincia?.trim()) {
+        relaxedNeeds = {
+          ...relaxedNeeds,
+          municipio: '',
+        };
+        matches = await this.runSearch(relaxedNeeds, limit);
+        totalAnalisados = Math.max(totalAnalisados, matches.totalAnalisados);
+      }
+
+      // 3) sem filtro de classe
+      if (matches.items.length === 0) {
+        relaxedNeeds = {
+          ...relaxedNeeds,
+          classe: '',
+        };
+        matches = await this.runSearch(relaxedNeeds, limit);
+        totalAnalisados = Math.max(totalAnalisados, matches.totalAnalisados);
+      }
     }
 
     const resultIds = matches.items.map((m) => m.school.id);

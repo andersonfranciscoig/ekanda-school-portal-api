@@ -29,6 +29,55 @@ describe('parseConciergeTurnDeterministic', () => {
     expect(result.reply.toLowerCase()).not.toContain('anotei mim');
   });
 
+  it('does not set budget from "qualquer classe"', () => {
+    const base = {
+      ...EMPTY_NEEDS,
+      municipio: 'Talatona',
+      provincia: 'Luanda',
+      classe: 'Pré-escolar',
+    };
+    const result = parseConciergeTurnDeterministic('Qualquer classe', base);
+    expect(result.needsPatch.precoMax).toBeUndefined();
+    expect(result.actions.shouldSearch).toBe(false);
+  });
+
+  it('treats dual municipalities as province-wide search', () => {
+    const both = parseConciergeTurnDeterministic('Talatona ou Belas', EMPTY_NEEDS);
+    expect(both.needsPatch.municipio).toBe('');
+    expect(both.needsPatch.provincia).toBe('Luanda');
+
+    const confirm = parseConciergeTurnDeterministic('Podes pesquisar pelos dois', {
+      ...EMPTY_NEEDS,
+      municipio: 'Talatona',
+      provincia: 'Luanda',
+    });
+    expect(confirm.needsPatch.municipio).toBe('');
+    expect(confirm.needsPatch.provincia).toBe('Luanda');
+  });
+
+  it('does not map price talk to transporte while awaiting it', () => {
+    const awaiting = {
+      ...EMPTY_NEEDS,
+      municipio: 'Talatona',
+      classe: 'Pré-escolar',
+      precoMax: null,
+      transporte: null,
+    };
+    // awaiting is precoMax here actually - set precoMax filled
+    const withPricePendingTransport = {
+      ...awaiting,
+      precoMax: 150000,
+    };
+    const result = parseConciergeTurnDeterministic(
+      'Nao tenho um Preço máximo, qualquer Preço serve',
+      withPricePendingTransport,
+    );
+    expect(result.needsPatch.transporte).toBeUndefined();
+    expect(result.needsPatch.precoMax).toBe(150000);
+    expect(result.actions.shouldSearch).toBe(false);
+    expect(result.reply.toLowerCase()).toContain('transporte');
+  });
+
   it('treats "qualquer valor" / "sem preferência" as flexible budget', () => {
     const base = {
       ...EMPTY_NEEDS,

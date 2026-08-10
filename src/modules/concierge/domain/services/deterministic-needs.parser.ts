@@ -92,14 +92,25 @@ function normalize(text: string) {
     .toLowerCase();
 }
 
-function extractPrice(text: string): number | null {
+function isFlexibleBudgetText(text: string): boolean {
   const flexible = normalize(text);
-  if (
-    /\b(sem\s+prefer[eê]?ncia|sem\s+pereferencia|qualquer\s+valor|indiferente|sem\s+limite|nao\s+tenho\s+preferencia|n[aã]o\s+tenho\s+prefer[eê]ncia)\b/.test(
+  // "qualquer classe" NÃO é orçamento
+  if (/\bqualquer\s+classes?\b/.test(flexible) || /\bqualquer\s+umas?\s+(dessas\s+)?classes\b/.test(flexible)) {
+    return false;
+  }
+  return (
+    /\b(sem\s+prefer[eê]?ncia|sem\s+pereferencia|qualquer\s+valor|qualquer\s+pre[cç]o|indiferente|sem\s+limite)\b/.test(
       flexible,
     ) ||
-    /\b(sem\s+preferencia|qualquer\s+orcamento)\b/.test(flexible)
-  ) {
+    /\b(sem\s+preferencia|qualquer\s+orcamento)\b/.test(flexible) ||
+    /\bn[aã]o\s+tenho\s+(um\s+)?pre[cç]o\s+maximo\b/.test(flexible) ||
+    /\bn[aã]o\s+tenho\s+prefer[eê]ncia\b/.test(flexible) ||
+    /\bqualquer\s+pre[cç]o\s+serve\b/.test(flexible)
+  );
+}
+
+function extractPrice(text: string): number | null {
+  if (isFlexibleBudgetText(text)) {
     return 150000;
   }
 
@@ -114,12 +125,27 @@ function extractPrice(text: string): number | null {
 }
 
 function extractClasse(text: string): string | null {
+  const n = normalize(text);
+  // Flexível: ainda precisamos de um valor concreto para o ranking — pedir de novo no fluxo
+  if (
+    /\bqualquer\s+classes?\b/.test(n) ||
+    /\bqualquer\s+umas?\s+(dessas\s+)?classes\b/.test(n) ||
+    /\btodas\s+as\s+classes\b/.test(n)
+  ) {
+    return null;
+  }
+
+  const dotted = text.match(/\b(\d{1,2})\.?\s*[ªa]\s*classe\b/i);
+  if (dotted?.[1]) {
+    return `${Number(dotted[1])}.ª classe`;
+  }
+
   for (const pattern of CLASS_PATTERNS) {
     const m = text.match(pattern.re);
     if (!m) continue;
     if (pattern.value) return pattern.value;
-    const n = m[1];
-    if (n && /^\d+$/.test(n)) return `${n}.ª classe`;
+    const num = m[1];
+    if (num && /^\d+$/.test(num)) return `${num}.ª classe`;
   }
   return null;
 }
@@ -127,21 +153,63 @@ function extractClasse(text: string): string | null {
 function extractLocation(text: string): {
   municipio?: string;
   provincia?: string;
+  clearMunicipio?: boolean;
 } {
-  const out: { municipio?: string; provincia?: string } = {};
+  const out: {
+    municipio?: string;
+    provincia?: string;
+    clearMunicipio?: boolean;
+  } = {};
 
+  const found: Array<{ name: string; province: string }> = [];
   for (const item of KNOWN_MUNICIPIOS) {
     if (new RegExp(`\\b${item.name.replace(/\s+/g, '\\s+')}\\b`, 'i').test(text)) {
-      out.municipio = item.name === 'Kilamba' ? 'Kilamba Kiaxi' : item.name;
-      out.provincia = item.province;
-      return out;
+      found.push({
+        name: item.name === 'Kilamba' ? 'Kilamba Kiaxi' : item.name,
+        province: item.province,
+      });
     }
+  }
+
+  const wantsBoth =
+    /\b(pelos\s+dois|ambos|as\s+duas|os\s+dois|qualquer\s+(um\s+)?dos\s+dois)\b/i.test(
+      text,
+    );
+
+  if (wantsBoth) {
+    // Confirmação "pelos dois" mesmo sem repetir os nomes
+    if (found.length >= 1) {
+      out.provincia = found[0]!.province;
+    }
+    out.clearMunicipio = true;
+    out.municipio = '';
+    return out;
+  }
+
+  if (found.length >= 2 && /\bou\b/i.test(text)) {
+    out.provincia = found[0]!.province;
+    out.clearMunicipio = true;
+    out.municipio = '';
+    return out;
+  }
+
+  if (found.length === 1) {
+    out.municipio = found[0]!.name;
+    out.provincia = found[0]!.province;
+    return out;
+  }
+
+  if (found.length >= 2) {
+    // "Talatona ou Belas" sem escolha → pesquisar na província
+    out.provincia = found[0]!.province;
+    out.clearMunicipio = true;
+    out.municipio = '';
+    return out;
   }
 
   for (const province of KNOWN_PROVINCES) {
     if (new RegExp(`\\b${province.replace(/\s+/g, '\\s+')}\\b`, 'i').test(text)) {
       out.provincia = province;
-      // Sem município concreto — se estiver em Luanda, usar capital como default útil
       if (/luanda/i.test(province)) {
         out.municipio = 'Luanda';
       }
@@ -203,11 +271,19 @@ function extractTransporte(
   }
 
   if (awaitingTransporte) {
+    // Frases sobre preço/orçamento não respondem transporte
+    if (/\b(pre[cç]o|orcamento|orçamento|kz|kwanza|mensalidade)\b/.test(t)) {
+      return null;
+    }
+    const short = t.trim().split(/\s+/).length <= 6;
+    if (!short && !/\btr[ae]nsporte\b/.test(t)) {
+      return null;
+    }
     if (/^(sim|yes|claro|preciso|quero|pode ser|ok)\b/.test(t) || t === 's') {
       return true;
     }
     if (
-      /^(n[aã]o|nao|no|nunca|dispenso)\b/.test(t) ||
+      /^(n[aã]o|nao|no|nunca|dispenso)(!|\.|,|$|\s)/.test(t) ||
       t === 'n' ||
       /\bn[aã]o\s+preciso\b/.test(t)
     ) {
@@ -245,7 +321,14 @@ export function parseConciergeTurnDeterministic(
   const patch: Partial<NeedsProfile> = {};
 
   const location = extractLocation(text);
-  if (location.municipio) patch.municipio = location.municipio;
+  if (location.clearMunicipio) {
+    patch.municipio = '';
+    if (!location.provincia && current.provincia) {
+      patch.provincia = current.provincia;
+    }
+  } else if (location.municipio) {
+    patch.municipio = location.municipio;
+  }
   if (location.provincia) patch.provincia = location.provincia;
 
   const classe = extractClasse(text);
@@ -254,11 +337,11 @@ export function parseConciergeTurnDeterministic(
   const price = extractPrice(text);
   if (price != null) patch.precoMax = price;
 
-  // Se estamos à espera de orçamento e a mensagem é curta afirmativa sem número
+  // Orçamento flexível só com intenção clara de preço (não "qualquer classe")
   if (
     awaiting === 'precoMax' &&
     patch.precoMax == null &&
-    /\b(pode\s+ser|tanto\s+faz|qualquer|indiferente)\b/i.test(text)
+    isFlexibleBudgetText(text)
   ) {
     patch.precoMax = 150000;
   }
@@ -325,8 +408,13 @@ export function parseConciergeTurnDeterministic(
   const ready = isNeedsReady(merged);
 
   const noted: string[] = [];
-  if (patch.municipio) noted.push(patch.municipio);
-  else if (patch.provincia) noted.push(patch.provincia);
+  if (location.clearMunicipio && patch.provincia) {
+    noted.push(`${patch.provincia} (vários municípios)`);
+  } else if (patch.municipio) {
+    noted.push(patch.municipio);
+  } else if (patch.provincia) {
+    noted.push(patch.provincia);
+  }
   if (patch.classe) noted.push(patch.classe);
   if (patch.precoMax != null) {
     noted.push(

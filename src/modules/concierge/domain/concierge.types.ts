@@ -89,8 +89,10 @@ export function mergeNeeds(
 
 /** Campos mínimos para disparar search. */
 export function isNeedsReady(needs: NeedsProfile): boolean {
+  const hasLocation =
+    Boolean(needs.municipio?.trim()) || Boolean(needs.provincia?.trim());
   return (
-    Boolean(needs.municipio?.trim()) &&
+    hasLocation &&
     Boolean(needs.classe?.trim()) &&
     needs.precoMax != null &&
     needs.precoMax > 0 &&
@@ -99,7 +101,9 @@ export function isNeedsReady(needs: NeedsProfile): boolean {
 }
 
 export function nextMissingField(needs: NeedsProfile): string | null {
-  if (!needs.municipio?.trim()) return 'municipio';
+  const hasLocation =
+    Boolean(needs.municipio?.trim()) || Boolean(needs.provincia?.trim());
+  if (!hasLocation) return 'municipio';
   if (!needs.classe?.trim()) return 'classe';
   if (needs.precoMax == null || needs.precoMax <= 0) return 'precoMax';
   if (needs.transporte === null) return 'transporte';
