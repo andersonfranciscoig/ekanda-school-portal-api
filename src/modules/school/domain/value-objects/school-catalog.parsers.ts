@@ -1,11 +1,14 @@
 import {
   DuplicateEducationLevelException,
+  DuplicateSchoolServiceException,
   InvalidEducationLevelException,
+  InvalidSchoolServiceException,
 } from '../exceptions/school.exceptions';
 import {
   EDUCATION_LEVEL_CATALOG_ORDER,
   EducationLevelCode,
   GalleryItemKind,
+  SCHOOL_SERVICE_CATALOG_ORDER,
   SchoolClassShiftLabel,
   SchoolServiceCatalogId,
 } from '../school.enums';
@@ -25,7 +28,6 @@ export function parseEducationLevelCode(value: string): EducationLevelCode {
   }
   return value as EducationLevelCode;
 }
-
 
 export function parseEducationLevelList(
   values: string[],
@@ -61,9 +63,41 @@ export function parseSchoolServiceCatalogId(
   value: string,
 ): SchoolServiceCatalogId {
   if (!SERVICE_CATALOG_SET.has(value)) {
-    throw new Error(`Invalid school service id: ${value}`);
+    throw new InvalidSchoolServiceException(
+      `Invalid school service id: ${value}`,
+    );
   }
   return value as SchoolServiceCatalogId;
+}
+
+export function parseSchoolServiceCatalogList(
+  values: string[],
+): SchoolServiceCatalogId[] {
+  if (!Array.isArray(values)) {
+    throw new InvalidSchoolServiceException('serviceIds must be an array');
+  }
+
+  const seen = new Set<string>();
+  const parsed: SchoolServiceCatalogId[] = [];
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      throw new DuplicateSchoolServiceException(
+        `Duplicate school service id: ${value}`,
+      );
+    }
+    seen.add(value);
+    parsed.push(parseSchoolServiceCatalogId(value));
+  }
+
+  return sortSchoolServices(parsed);
+}
+
+export function sortSchoolServices(
+  services: SchoolServiceCatalogId[],
+): SchoolServiceCatalogId[] {
+  const set = new Set(services);
+  return SCHOOL_SERVICE_CATALOG_ORDER.filter((service) => set.has(service));
 }
 
 export function parseSchoolClassShiftLabel(

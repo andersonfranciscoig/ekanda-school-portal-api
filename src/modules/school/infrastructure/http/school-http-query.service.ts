@@ -10,6 +10,7 @@ import {
   SchoolStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
+import { buildSchoolOnboardingProgress } from '../../application/school-onboarding.progress';
 
 const schoolPublicInclude = {
   location: true,
@@ -20,6 +21,14 @@ const schoolPublicInclude = {
   educationLevels: true,
 } satisfies Prisma.SchoolInclude;
 
+const schoolMineInclude = {
+  location: true,
+  educationLevels: { select: { id: true } },
+  classes: { where: { isActive: true }, select: { id: true } },
+  services: { select: { id: true } },
+  price: { select: { id: true } },
+  gallery: { select: { id: true } },
+} satisfies Prisma.SchoolInclude;
 
 @Injectable()
 export class SchoolHttpQueryService {
@@ -28,14 +37,37 @@ export class SchoolHttpQueryService {
   async findMine(userId: string) {
     const memberships = await this.prisma.schoolMembership.findMany({
       where: { userId, status: MembershipStatus.ACTIVE },
-      include: { school: { include: { location: true } } },
+      include: { school: { include: schoolMineInclude } },
       orderBy: { createdAt: 'desc' },
     });
 
-    return memberships.map((m) => ({
-      membership: { id: m.id, role: m.role, status: m.status },
-      school: m.school,
-    }));
+    return memberships.map((m) => {
+      const {
+        educationLevels,
+        classes,
+        services,
+        price,
+        gallery,
+        ...school
+      } = m.school;
+
+      return {
+        membership: { id: m.id, role: m.role, status: m.status },
+        school: {
+          ...school,
+          onboarding: buildSchoolOnboardingProgress({
+            name: school.name,
+            description: school.description,
+            location: school.location,
+            educationLevels,
+            classes,
+            services,
+            price,
+            gallery,
+          }),
+        },
+      };
+    });
   }
 
   async findPublicBySlug(slug: string) {

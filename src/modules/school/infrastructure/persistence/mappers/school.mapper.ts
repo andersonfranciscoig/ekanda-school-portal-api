@@ -7,7 +7,7 @@ import { SchoolClass } from '../../../domain/entities/school-class.entity';
 import { SchoolGalleryItem } from '../../../domain/entities/school-gallery-item.entity';
 import { SchoolLocation } from '../../../domain/entities/school-location.entity';
 import { SchoolServiceOffer } from '../../../domain/entities/school-service.entity';
-import { SchoolClassShift, SchoolStatus } from '../../../domain/school.enums';
+import { SchoolClassShift, GalleryKind, SchoolStatus } from '../../../domain/school.enums';
 import { SchoolSlug } from '../../../domain/value-objects/school-slug.vo';
 
 type PrismaSchoolRecord = {
@@ -50,12 +50,20 @@ type PrismaSchoolRecord = {
   }>;
   price?: {
     id: string;
-    enrollmentFee: { toNumber(): number } | number | null;
-    tuitionFee: { toNumber(): number } | number | null;
-    transportFee: { toNumber(): number } | number | null;
-    mealFee: { toNumber(): number } | number | null;
     otherFees: { toNumber(): number } | number | null;
     currency: string;
+    levels?: Array<{
+      id: string;
+      levelId: string;
+      enrollmentFeeMin: { toNumber(): number } | number | null;
+      enrollmentFeeMax: { toNumber(): number } | number | null;
+      tuitionFeeMin: { toNumber(): number } | number | null;
+      tuitionFeeMax: { toNumber(): number } | number | null;
+      transportFeeMin: { toNumber(): number } | number | null;
+      transportFeeMax: { toNumber(): number } | number | null;
+      mealFeeMin: { toNumber(): number } | number | null;
+      mealFeeMax: { toNumber(): number } | number | null;
+    }>;
   } | null;
   gallery?: Array<{
     id: string;
@@ -132,12 +140,13 @@ export class SchoolMapper {
       // SchoolPrice 1:1 (fees) — domínio de lista antiga ainda não alinhado.
       prices: [],
       gallery: (record.gallery ?? []).map((g) =>
-        SchoolGalleryItem.create({
+        SchoolGalleryItem.rehydrate({
           id: g.id,
+          schoolId: record.id,
           url: g.url,
-          type: g.kind === 'VIDEO' ? 'VIDEO' : 'IMAGE',
-          caption: g.fileName,
-          sortOrder: g.order,
+          kind: g.kind === 'VIDEO' ? GalleryKind.VIDEO : GalleryKind.PHOTO,
+          order: g.order,
+          fileName: g.fileName,
         }),
       ),
       createdAt: record.createdAt,

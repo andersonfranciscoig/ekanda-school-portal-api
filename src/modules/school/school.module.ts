@@ -4,10 +4,14 @@ import { SCHOOL_REPOSITORY } from './domain/repositories/school.repository';
 import { SCHOOL_LOCATION_REPOSITORY } from './domain/repositories/school-location.repository';
 import { SCHOOL_EDUCATION_LEVEL_REPOSITORY } from './domain/repositories/school-education-level.repository';
 import { SCHOOL_CLASS_REPOSITORY } from './domain/repositories/school-class.repository';
+import { SCHOOL_SERVICE_REPOSITORY } from './domain/repositories/school-service.repository';
+import { SCHOOL_PRICE_REPOSITORY } from './domain/repositories/school-price.repository';
+import { SCHOOL_GALLERY_REPOSITORY } from './domain/repositories/school-gallery.repository';
 import { CreateOrUpdateSchoolUseCase } from './application/use-cases/create-or-update-school.use-case';
 import { CreateOrUpdateSchoolLocationUseCase } from './application/use-cases/create-or-update-school-location.use-case';
 import { SyncSchoolEducationLevelsUseCase } from './application/use-cases/sync-school-education-levels.use-case';
 import { CreateOrUpdateSchoolClassUseCase } from './application/use-cases/create-or-update-school-class.use-case';
+import { SyncSchoolServicesUseCase } from './application/use-cases/sync-school-services.use-case';
 import { CreateOrUpdateSchoolServiceUseCase } from './application/use-cases/create-or-update-school-service.use-case';
 import { CreateOrUpdateSchoolPriceUseCase } from './application/use-cases/create-or-update-school-price.use-case';
 import { CreateOrUpdateSchoolGalleryUseCase } from './application/use-cases/create-or-update-school-gallery.use-case';
@@ -22,6 +26,9 @@ import { PrismaSchoolRepository } from './infrastructure/persistence/prisma/pris
 import { PrismaSchoolLocationRepository } from './infrastructure/persistence/prisma/prisma-school-location.repository';
 import { PrismaSchoolEducationLevelRepository } from './infrastructure/persistence/prisma/prisma-school-education-level.repository';
 import { PrismaSchoolClassRepository } from './infrastructure/persistence/prisma/prisma-school-class.repository';
+import { PrismaSchoolServiceRepository } from './infrastructure/persistence/prisma/prisma-school-service.repository';
+import { PrismaSchoolPriceRepository } from './infrastructure/persistence/prisma/prisma-school-price.repository';
+import { PrismaSchoolGalleryRepository } from './infrastructure/persistence/prisma/prisma-school-gallery.repository';
 import { SchoolsController } from './infrastructure/http/controllers/schools.controller';
 import { SchoolHttpQueryService } from './infrastructure/http/school-http-query.service';
 
@@ -30,6 +37,7 @@ const schoolUseCases = [
   CreateOrUpdateSchoolLocationUseCase,
   SyncSchoolEducationLevelsUseCase,
   CreateOrUpdateSchoolClassUseCase,
+  SyncSchoolServicesUseCase,
   CreateOrUpdateSchoolServiceUseCase,
   CreateOrUpdateSchoolPriceUseCase,
   CreateOrUpdateSchoolGalleryUseCase,
@@ -58,6 +66,18 @@ const schoolUseCases = [
       provide: SCHOOL_CLASS_REPOSITORY,
       useClass: PrismaSchoolClassRepository,
     },
+    {
+      provide: SCHOOL_SERVICE_REPOSITORY,
+      useClass: PrismaSchoolServiceRepository,
+    },
+    {
+      provide: SCHOOL_PRICE_REPOSITORY,
+      useClass: PrismaSchoolPriceRepository,
+    },
+    {
+      provide: SCHOOL_GALLERY_REPOSITORY,
+      useClass: PrismaSchoolGalleryRepository,
+    },
     SchoolAccessAuthorizer,
     SchoolHttpQueryService,
     ...schoolUseCases,
@@ -67,6 +87,9 @@ const schoolUseCases = [
     SCHOOL_LOCATION_REPOSITORY,
     SCHOOL_EDUCATION_LEVEL_REPOSITORY,
     SCHOOL_CLASS_REPOSITORY,
+    SCHOOL_SERVICE_REPOSITORY,
+    SCHOOL_PRICE_REPOSITORY,
+    SCHOOL_GALLERY_REPOSITORY,
     SchoolAccessAuthorizer,
     ...schoolUseCases,
   ],

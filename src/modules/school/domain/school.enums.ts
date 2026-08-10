@@ -51,6 +51,19 @@ export enum SchoolServiceCatalogId {
   EXTRA = 'extra',
 }
 
+export const SCHOOL_SERVICE_CATALOG_ORDER: SchoolServiceCatalogId[] = [
+  SchoolServiceCatalogId.TRANSPORTE,
+  SchoolServiceCatalogId.CANTINA,
+  SchoolServiceCatalogId.BIBLIOTECA,
+  SchoolServiceCatalogId.LABORATORIO,
+  SchoolServiceCatalogId.CAMPO,
+  SchoolServiceCatalogId.INFORMATICA,
+  SchoolServiceCatalogId.INGLES,
+  SchoolServiceCatalogId.SEGURANCA,
+  SchoolServiceCatalogId.ENFERMARIA,
+  SchoolServiceCatalogId.EXTRA,
+];
+
 export enum SchoolClassShiftLabel {
   MANHA = 'Manhã',
   TARDE = 'Tarde',
@@ -68,6 +81,11 @@ export enum SchoolClassShift {
 export enum GalleryItemKind {
   PHOTO = 'photo',
   VIDEO = 'video',
+}
+
+export enum GalleryKind {
+  PHOTO = 'PHOTO',
+  VIDEO = 'VIDEO',
 }
 
 export const SCHOOL_PRICES_CURRENCY = 'AOA' as const;

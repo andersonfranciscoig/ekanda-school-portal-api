@@ -11,3 +11,4 @@ export * from './reactivate-school.use-case';
 export * from './submit-school-for-activation.use-case';
 export * from './suspend-school.use-case';
 export * from './sync-school-education-levels.use-case';
+export * from './sync-school-services.use-case';

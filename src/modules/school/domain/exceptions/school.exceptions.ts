@@ -88,6 +88,100 @@ export class DuplicateEducationLevelException extends BusinessRuleViolationExcep
   }
 }
 
+export class InvalidSchoolServiceException extends BusinessRuleViolationException {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidSchoolServiceException';
+  }
+}
+
+export class DuplicateSchoolServiceException extends BusinessRuleViolationException {
+  constructor(message = 'Duplicate school services are not allowed') {
+    super(message);
+    this.name = 'DuplicateSchoolServiceException';
+  }
+}
+
+export class EducationLevelNotOfferedBySchoolException extends BusinessRuleViolationException {
+  constructor(levelId: string, schoolId: string) {
+    super(
+      `Education level "${levelId}" is not offered by school "${schoolId}"`,
+    );
+    this.name = 'EducationLevelNotOfferedBySchoolException';
+  }
+}
+
+export class InvalidPriceRangeException extends BusinessRuleViolationException {
+  constructor(message = 'Invalid price range') {
+    super(message);
+    this.name = 'InvalidPriceRangeException';
+  }
+}
+
+export class InvalidCurrencyException extends BusinessRuleViolationException {
+  constructor(message = 'currency must be AOA') {
+    super(message);
+    this.name = 'InvalidCurrencyException';
+  }
+}
+
+export class SchoolPriceAlreadyExistsException extends ConflictDomainException {
+  constructor(
+    message = 'School already has prices. Send id to update.',
+  ) {
+    super(message);
+    this.name = 'SchoolPriceAlreadyExistsException';
+  }
+}
+
+export class SchoolPriceNotFoundException extends EntityNotFoundException {
+  constructor(message = 'School price not found') {
+    super(message);
+    this.name = 'SchoolPriceNotFoundException';
+  }
+}
+
+export class SchoolPriceAccessDeniedException extends ForbiddenDomainException {
+  constructor(
+    message = 'School price does not belong to the specified school',
+  ) {
+    super(message);
+    this.name = 'SchoolPriceAccessDeniedException';
+  }
+}
+
+export class InvalidSchoolGalleryException extends BusinessRuleViolationException {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidSchoolGalleryException';
+  }
+}
+
+export class SchoolGalleryAlreadyExistsException extends ConflictDomainException {
+  constructor(
+    message = 'School already has gallery items. Send id to update.',
+  ) {
+    super(message);
+    this.name = 'SchoolGalleryAlreadyExistsException';
+  }
+}
+
+export class SchoolGalleryNotFoundException extends EntityNotFoundException {
+  constructor(message = 'School gallery item not found') {
+    super(message);
+    this.name = 'SchoolGalleryNotFoundException';
+  }
+}
+
+export class SchoolGalleryAccessDeniedException extends ForbiddenDomainException {
+  constructor(
+    message = 'Gallery item does not belong to the specified school',
+  ) {
+    super(message);
+    this.name = 'SchoolGalleryAccessDeniedException';
+  }
+}
+
 export class InvalidSchoolClassException extends BusinessRuleViolationException {
   constructor(message: string) {
     super(message);

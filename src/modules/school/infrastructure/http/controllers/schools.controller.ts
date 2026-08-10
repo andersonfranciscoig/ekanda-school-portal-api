@@ -25,6 +25,9 @@ import { CreateOrUpdateSchoolUseCase } from '../../../application/use-cases/crea
 import { CreateOrUpdateSchoolLocationUseCase } from '../../../application/use-cases/create-or-update-school-location.use-case';
 import { SyncSchoolEducationLevelsUseCase } from '../../../application/use-cases/sync-school-education-levels.use-case';
 import { CreateOrUpdateSchoolClassUseCase } from '../../../application/use-cases/create-or-update-school-class.use-case';
+import { SyncSchoolServicesUseCase } from '../../../application/use-cases/sync-school-services.use-case';
+import { CreateOrUpdateSchoolPriceUseCase } from '../../../application/use-cases/create-or-update-school-price.use-case';
+import { CreateOrUpdateSchoolGalleryUseCase } from '../../../application/use-cases/create-or-update-school-gallery.use-case';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
@@ -33,6 +36,9 @@ import { CreateOrUpdateSchoolHttpDto } from '../dto/create-or-update-school.http
 import { CreateOrUpdateSchoolLocationHttpDto } from '../dto/create-or-update-school-location.http-dto';
 import { SyncSchoolEducationLevelsHttpDto } from '../dto/sync-school-education-levels.http-dto';
 import { CreateOrUpdateSchoolClassHttpDto } from '../dto/create-or-update-school-class.http-dto';
+import { SyncSchoolServicesHttpDto } from '../dto/sync-school-services.http-dto';
+import { CreateOrUpdateSchoolPriceHttpDto } from '../dto/create-or-update-school-price.http-dto';
+import { CreateOrUpdateSchoolGalleryHttpDto } from '../dto/create-or-update-school-gallery.http-dto';
 import { SchoolHttpQueryService } from '../school-http-query.service';
 import { UploadFileInput } from '../../../../../shared/application/ports/file-storage.port';
 
@@ -43,6 +49,11 @@ type SchoolFiles = {
   coverImageUrl?: Express.Multer.File[];
 };
 
+type GalleryFiles = {
+  photos?: Express.Multer.File[];
+  videos?: Express.Multer.File[];
+};
+
 function toUploadInput(file?: Express.Multer.File): UploadFileInput | undefined {
   if (!file) return undefined;
   return {
@@ -51,6 +62,12 @@ function toUploadInput(file?: Express.Multer.File): UploadFileInput | undefined 
     mimeType: file.mimetype,
     size: file.size,
   };
+}
+
+function toUploadInputs(files?: Express.Multer.File[]): UploadFileInput[] {
+  return (files ?? [])
+    .map((file) => toUploadInput(file))
+    .filter((file): file is UploadFileInput => Boolean(file));
 }
 
 function firstFile(
@@ -72,6 +89,9 @@ export class SchoolsController {
     private readonly createOrUpdateSchoolLocation: CreateOrUpdateSchoolLocationUseCase,
     private readonly syncSchoolEducationLevels: SyncSchoolEducationLevelsUseCase,
     private readonly createOrUpdateSchoolClass: CreateOrUpdateSchoolClassUseCase,
+    private readonly syncSchoolServices: SyncSchoolServicesUseCase,
+    private readonly createOrUpdateSchoolPrice: CreateOrUpdateSchoolPriceUseCase,
+    private readonly createOrUpdateSchoolGallery: CreateOrUpdateSchoolGalleryUseCase,
     private readonly queries: SchoolHttpQueryService,
   ) {}
 
@@ -243,6 +263,114 @@ export class SchoolsController {
       operation === 'created'
         ? 'School class created successfully'
         : 'School class updated successfully',
+    );
+  }
+
+  @Post('services')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('application/json')
+  @ApiBody({ type: SyncSchoolServicesHttpDto })
+  @ApiOperation({
+    summary:
+      'Sync school services (POST JSON). Request serviceIds = final state.',
+  })
+  async syncServices(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SyncSchoolServicesHttpDto,
+  ) {
+    const result = await this.syncSchoolServices.execute({
+      actorUserId: user.id,
+      schoolId: dto.schoolId,
+      serviceIds: dto.serviceIds,
+    });
+
+    return ok(result, 'School services synchronized successfully');
+  }
+
+  @Post('prices')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('application/json')
+  @ApiBody({ type: CreateOrUpdateSchoolPriceHttpDto })
+  @ApiOperation({
+    summary:
+      'CreateOrUpdate school prices (POST JSON). No id = create; with id = update. Levels must be offered by the school.',
+  })
+  async createOrUpdatePrices(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateOrUpdateSchoolPriceHttpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { pricing, operation } = await this.createOrUpdateSchoolPrice.execute({
+      actorUserId: user.id,
+      id: dto.id,
+      schoolId: dto.schoolId,
+      levels: dto.levels,
+      otherFees: dto.otherFees,
+      currency: dto.currency,
+    });
+
+    res.status(
+      operation === 'created' ? HttpStatus.CREATED : HttpStatus.OK,
+    );
+
+    return ok(
+      pricing.toSnapshot(),
+      operation === 'created'
+        ? 'School prices created successfully'
+        : 'School prices updated successfully',
+    );
+  }
+
+  @Post('gallery')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: CreateOrUpdateSchoolGalleryHttpDto })
+  @ApiOperation({
+    summary:
+      'CreateOrUpdate school gallery (multipart). photos[] JPEG/PNG ≤10MB; videos[] MP4 ≤200MB. No id = create; with id = replace set.',
+  })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'photos', maxCount: 30 },
+        { name: 'videos', maxCount: 10 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: {
+          fileSize: 200 * 1024 * 1024,
+          files: 40,
+        },
+      },
+    ),
+  )
+  async createOrUpdateGallery(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateOrUpdateSchoolGalleryHttpDto,
+    @UploadedFiles() files: GalleryFiles | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { items, operation } =
+      await this.createOrUpdateSchoolGallery.execute({
+        actorUserId: user.id,
+        id: dto.id,
+        schoolId: dto.schoolId,
+        photos: toUploadInputs(files?.photos),
+        videos: toUploadInputs(files?.videos),
+      });
+
+    res.status(
+      operation === 'created' ? HttpStatus.CREATED : HttpStatus.OK,
+    );
+
+    return ok(
+      items.map((item) => item.toSnapshot()),
+      operation === 'created'
+        ? 'School gallery created successfully'
+        : 'School gallery updated successfully',
     );
   }
 

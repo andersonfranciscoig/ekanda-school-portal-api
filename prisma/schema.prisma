@@ -335,24 +335,50 @@ model SchoolService {
   @@map("school_services")
 }
 
-/// Preços globais da School (MVP) — relação 1:1.
-/// Preço por turma fica para fase futura (modelo SchoolClassPrice separado).
+/// Preços da School (MVP) — 1:1 com School.
+/// Fees por nível em SchoolPriceLevel; otherFees continua global.
 model SchoolPrice {
-  id            String   @id @default(uuid()) @db.Uuid
-  schoolId      String   @unique @db.Uuid
-  enrollmentFee Decimal? @db.Decimal(12, 2)
-  tuitionFee    Decimal? @db.Decimal(12, 2)
-  transportFee  Decimal? @db.Decimal(12, 2)
-  mealFee       Decimal? @db.Decimal(12, 2)
-  otherFees     Decimal? @db.Decimal(12, 2)
-  currency      String   @default("AOA") @db.VarChar(8)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @unique @db.Uuid
+  otherFees Decimal? @db.Decimal(12, 2)
+  currency  String   @default("AOA") @db.VarChar(8)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  levels SchoolPriceLevel[]
 
   @@index([schoolId])
   @@map("school_prices")
+}
+
+/// Preços por nível de ensino (min/max) dentro de um SchoolPrice.
+model SchoolPriceLevel {
+  id            String             @id @default(uuid()) @db.Uuid
+  schoolPriceId String             @db.Uuid
+  levelId       EducationLevelCode
+
+  enrollmentFeeMin Decimal? @db.Decimal(12, 2)
+  enrollmentFeeMax Decimal? @db.Decimal(12, 2)
+
+  tuitionFeeMin Decimal? @db.Decimal(12, 2)
+  tuitionFeeMax Decimal? @db.Decimal(12, 2)
+
+  transportFeeMin Decimal? @db.Decimal(12, 2)
+  transportFeeMax Decimal? @db.Decimal(12, 2)
+
+  mealFeeMin Decimal? @db.Decimal(12, 2)
+  mealFeeMax Decimal? @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schoolPrice SchoolPrice @relation(fields: [schoolPriceId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolPriceId, levelId])
+  @@index([schoolPriceId])
+  @@index([levelId])
+  @@map("school_price_levels")
 }
 
 model SchoolGallery {
