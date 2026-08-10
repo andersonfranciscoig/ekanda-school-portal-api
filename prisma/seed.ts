@@ -2,6 +2,15 @@ import { PrismaClient, PlanCode, BillingPeriod } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const FREE_FEATURES = [
+  {
+    code: 'PUBLIC_PROFILE',
+    name: 'Perfil público',
+    description:
+      'Permite que o colégio mantenha o seu perfil público visível no marketplace durante o período gratuito.',
+  },
+] as const;
+
 const PRESENCE_FEATURES = [
   {
     code: 'PUBLIC_PROFILE',
@@ -88,6 +97,8 @@ async function upsertPlan(params: {
   name: string;
   description: string;
   price: number;
+  currency: string;
+  billingPeriod: BillingPeriod;
   isActive: boolean;
   isPublic: boolean;
   features: ReadonlyArray<{ code: string; name: string; description: string }>;
@@ -98,8 +109,8 @@ async function upsertPlan(params: {
       name: params.name,
       description: params.description,
       price: params.price,
-      currency: 'Kz',
-      billingPeriod: BillingPeriod.MONTHLY,
+      currency: params.currency,
+      billingPeriod: params.billingPeriod,
       isActive: params.isActive,
       isPublic: params.isPublic,
     },
@@ -108,8 +119,8 @@ async function upsertPlan(params: {
       name: params.name,
       description: params.description,
       price: params.price,
-      currency: 'Kz',
-      billingPeriod: BillingPeriod.MONTHLY,
+      currency: params.currency,
+      billingPeriod: params.billingPeriod,
       isActive: params.isActive,
       isPublic: params.isPublic,
     },
@@ -141,11 +152,26 @@ async function upsertPlan(params: {
 
 async function main() {
   await upsertPlan({
+    code: PlanCode.FREE,
+    name: 'Plano Gratuito',
+    description:
+      'Plano gratuito de 30 dias para visibilidade pública do colégio no marketplace. Sem pagamento e sem funcionalidades de gestão.',
+    price: 0,
+    currency: 'AOA',
+    billingPeriod: BillingPeriod.ONE_TIME,
+    isActive: true,
+    isPublic: true,
+    features: FREE_FEATURES,
+  });
+
+  await upsertPlan({
     code: PlanCode.PRESENCE,
     name: 'Presença',
     description:
       'Plano MVP para perfil público, marketplace, candidaturas e gestão básica do colégio na Ekanda.',
     price: 0,
+    currency: 'Kz',
+    billingPeriod: BillingPeriod.MONTHLY,
     isActive: true,
     isPublic: true,
     features: PRESENCE_FEATURES,
@@ -157,12 +183,16 @@ async function main() {
     description:
       'Plano futuro de gestão escolar completa. Mantido inactivo durante o MVP.',
     price: 0,
+    currency: 'Kz',
+    billingPeriod: BillingPeriod.MONTHLY,
     isActive: false,
     isPublic: false,
     features: MANAGEMENT_FEATURES,
   });
 
-  console.log('Seed concluído: planos PRESENCE (activo) e MANAGEMENT (inactivo).');
+  console.log(
+    'Seed concluído: planos FREE (activo), PRESENCE (activo) e MANAGEMENT (inactivo).',
+  );
 }
 
 main()

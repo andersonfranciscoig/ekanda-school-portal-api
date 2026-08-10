@@ -13,6 +13,7 @@ import {
   ForbiddenDomainException,
   UnauthorizedDomainException,
 } from '../../domain/exceptions/domain.exception';
+import { SchoolOnboardingIncompleteException } from '../../../modules/school/domain/exceptions/school.exceptions';
 
 @Catch(DomainException)
 export class DomainExceptionFilter implements ExceptionFilter {
@@ -42,10 +43,19 @@ export class DomainExceptionFilter implements ExceptionFilter {
       error = 'Unprocessable Entity';
     }
 
-    response.status(status).json({
+    const body: Record<string, unknown> = {
       statusCode: status,
       error,
       message: exception.message,
-    });
+    };
+
+    if (exception instanceof SchoolOnboardingIncompleteException) {
+      body.incompleteSteps = exception.incompleteSteps;
+      if (exception.review) {
+        body.data = exception.review;
+      }
+    }
+
+    response.status(status).json(body);
   }
 }

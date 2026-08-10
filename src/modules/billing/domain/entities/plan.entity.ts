@@ -3,6 +3,7 @@ import { InvariantViolationException } from '../../../../shared/domain/exception
 import { Money } from '../../../../shared/domain/value-objects/money.vo';
 
 export enum PlanCode {
+  FREE = 'FREE',
   PRESENCE = 'PRESENCE',
   MANAGEMENT = 'MANAGEMENT',
 }
@@ -17,6 +18,7 @@ export class Plan extends AggregateRoot {
     private _billingPeriod: string,
     private _isActive: boolean,
     private _isPublic: boolean,
+    private readonly _featureCodes: string[],
   ) {
     super();
   }
@@ -30,6 +32,7 @@ export class Plan extends AggregateRoot {
     billingPeriod: string;
     isActive: boolean;
     isPublic: boolean;
+    featureCodes?: string[];
   }): Plan {
     return new Plan(
       params.id,
@@ -40,6 +43,7 @@ export class Plan extends AggregateRoot {
       params.billingPeriod,
       params.isActive,
       params.isPublic,
+      params.featureCodes ?? [],
     );
   }
 
@@ -51,12 +55,40 @@ export class Plan extends AggregateRoot {
     return this._code;
   }
 
+  get name(): string {
+    return this._name;
+  }
+
+  get description(): string | null {
+    return this._description;
+  }
+
   get isActive(): boolean {
     return this._isActive;
   }
 
+  get isPublic(): boolean {
+    return this._isPublic;
+  }
+
+  get billingPeriod(): string {
+    return this._billingPeriod;
+  }
+
   get price(): Money {
     return this._price;
+  }
+
+  get featureCodes(): readonly string[] {
+    return this._featureCodes;
+  }
+
+  hasFeature(code: string): boolean {
+    return this._featureCodes.includes(code);
+  }
+
+  isFree(): boolean {
+    return this._code === PlanCode.FREE;
   }
 
   activate(): void {

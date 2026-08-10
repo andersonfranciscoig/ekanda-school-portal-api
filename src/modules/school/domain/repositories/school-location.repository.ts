@@ -7,4 +7,5 @@ export interface SchoolLocationRepository {
   findBySchoolId(schoolId: string): Promise<SchoolLocation | null>;
   create(location: SchoolLocation): Promise<SchoolLocation>;
   update(location: SchoolLocation): Promise<SchoolLocation>;
+  deleteBySchoolId(schoolId: string): Promise<boolean>;
 }

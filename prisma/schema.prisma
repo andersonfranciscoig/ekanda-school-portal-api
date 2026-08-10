@@ -51,6 +51,7 @@ enum SubscriptionStatus {
 }
 
 enum PlanCode {
+  FREE
   PRESENCE
   MANAGEMENT
 }
@@ -227,6 +228,7 @@ model School {
   approximateStudents Int?
   instagram           String?
   facebook            String?
+  servicesConfiguredAt DateTime?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 

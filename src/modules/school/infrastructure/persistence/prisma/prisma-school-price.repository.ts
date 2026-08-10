@@ -147,6 +147,13 @@ export class PrismaSchoolPriceRepository implements SchoolPriceRepository {
     return this.toDomain(record);
   }
 
+  async deleteBySchoolId(schoolId: string): Promise<boolean> {
+    const result = await this.prisma.schoolPrice.deleteMany({
+      where: { schoolId },
+    });
+    return result.count > 0;
+  }
+
   private toDomain(record: PriceRecord): SchoolPricing {
     const toNumber = (
       value: Prisma.Decimal | number | null,

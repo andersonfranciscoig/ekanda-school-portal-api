@@ -88,6 +88,13 @@ export class DuplicateEducationLevelException extends BusinessRuleViolationExcep
   }
 }
 
+export class SchoolEducationLevelsNotFoundException extends EntityNotFoundException {
+  constructor(message = 'School education levels not found') {
+    super(message);
+    this.name = 'SchoolEducationLevelsNotFoundException';
+  }
+}
+
 export class InvalidSchoolServiceException extends BusinessRuleViolationException {
   constructor(message: string) {
     super(message);
@@ -99,6 +106,13 @@ export class DuplicateSchoolServiceException extends BusinessRuleViolationExcept
   constructor(message = 'Duplicate school services are not allowed') {
     super(message);
     this.name = 'DuplicateSchoolServiceException';
+  }
+}
+
+export class SchoolServicesNotFoundException extends EntityNotFoundException {
+  constructor(message = 'School services not found') {
+    super(message);
+    this.name = 'SchoolServicesNotFoundException';
   }
 }
 
@@ -202,6 +216,28 @@ export class SchoolClassAccessDeniedException extends ForbiddenDomainException {
   ) {
     super(message);
     this.name = 'SchoolClassAccessDeniedException';
+  }
+}
+
+export class SchoolOnboardingIncompleteException extends BusinessRuleViolationException {
+  constructor(
+    public readonly incompleteSteps: string[],
+    public readonly review?: {
+      schoolId: string;
+      steps: Record<string, { completed: boolean; missingFields: string[] }>;
+      completedSteps: number;
+      totalSteps: number;
+      completionPercent: number;
+      canSubmit: boolean;
+      status: string;
+    },
+    message?: string,
+  ) {
+    super(
+      message ??
+        `School onboarding incomplete. Pending steps: ${incompleteSteps.join(', ')}`,
+    );
+    this.name = 'SchoolOnboardingIncompleteException';
   }
 }
 

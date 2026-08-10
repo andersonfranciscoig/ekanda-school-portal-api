@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Param,
@@ -28,6 +29,15 @@ import { CreateOrUpdateSchoolClassUseCase } from '../../../application/use-cases
 import { SyncSchoolServicesUseCase } from '../../../application/use-cases/sync-school-services.use-case';
 import { CreateOrUpdateSchoolPriceUseCase } from '../../../application/use-cases/create-or-update-school-price.use-case';
 import { CreateOrUpdateSchoolGalleryUseCase } from '../../../application/use-cases/create-or-update-school-gallery.use-case';
+import { GetSchoolOnboardingReviewUseCase } from '../../../application/use-cases/get-school-onboarding-review.use-case';
+import { CompleteSchoolOnboardingUseCase } from '../../../application/use-cases/complete-school-onboarding.use-case';
+import { DeleteSchoolLogoUseCase } from '../../../application/use-cases/delete-school-logo.use-case';
+import { DeleteSchoolLocationUseCase } from '../../../application/use-cases/delete-school-location.use-case';
+import { DeleteSchoolClassUseCase } from '../../../application/use-cases/delete-school-class.use-case';
+import { DeleteSchoolGalleryItemUseCase } from '../../../application/use-cases/delete-school-gallery-item.use-case';
+import { DeleteSchoolPriceUseCase } from '../../../application/use-cases/delete-school-price.use-case';
+import { DeleteSchoolEducationLevelsUseCase } from '../../../application/use-cases/delete-school-education-levels.use-case';
+import { DeleteSchoolServicesUseCase } from '../../../application/use-cases/delete-school-services.use-case';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
@@ -92,6 +102,15 @@ export class SchoolsController {
     private readonly syncSchoolServices: SyncSchoolServicesUseCase,
     private readonly createOrUpdateSchoolPrice: CreateOrUpdateSchoolPriceUseCase,
     private readonly createOrUpdateSchoolGallery: CreateOrUpdateSchoolGalleryUseCase,
+    private readonly getSchoolOnboardingReview: GetSchoolOnboardingReviewUseCase,
+    private readonly completeSchoolOnboarding: CompleteSchoolOnboardingUseCase,
+    private readonly deleteSchoolLogo: DeleteSchoolLogoUseCase,
+    private readonly deleteSchoolLocation: DeleteSchoolLocationUseCase,
+    private readonly deleteSchoolClass: DeleteSchoolClassUseCase,
+    private readonly deleteSchoolGalleryItem: DeleteSchoolGalleryItemUseCase,
+    private readonly deleteSchoolPrice: DeleteSchoolPriceUseCase,
+    private readonly deleteSchoolEducationLevels: DeleteSchoolEducationLevelsUseCase,
+    private readonly deleteSchoolServices: DeleteSchoolServicesUseCase,
     private readonly queries: SchoolHttpQueryService,
   ) {}
 
@@ -382,10 +401,157 @@ export class SchoolsController {
     return this.queries.findMine(user.id);
   }
 
+  @Delete(':schoolId/logo')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Remove school logo (OWNER/ADMIN)' })
+  async removeLogo(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolLogo.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School logo deleted successfully');
+  }
+
+  @Delete(':schoolId/location')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Remove school location (OWNER/ADMIN)' })
+  async removeLocation(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolLocation.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School location deleted successfully');
+  }
+
+  @Delete(':schoolId/classes/:classId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Deactivate school class — soft delete (OWNER/ADMIN)',
+  })
+  async removeClass(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolClass.execute({
+      schoolId,
+      classId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School class deleted successfully');
+  }
+
+  @Delete(':schoolId/gallery/:mediaId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Remove gallery media item (OWNER/ADMIN)' })
+  async removeGalleryItem(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @Param('mediaId', ParseUUIDPipe) mediaId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolGalleryItem.execute({
+      schoolId,
+      mediaId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School gallery item deleted successfully');
+  }
+
+  @Delete(':schoolId/prices')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Remove school prices (OWNER/ADMIN)' })
+  async removePrices(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolPrice.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School prices deleted successfully');
+  }
+
+  @Delete(':schoolId/education-levels')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Remove all school education levels (OWNER/ADMIN)' })
+  async removeEducationLevels(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolEducationLevels.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School education levels deleted successfully');
+  }
+
+  @Delete(':schoolId/services')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Remove all school services (OWNER/ADMIN)' })
+  async removeServices(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.deleteSchoolServices.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(result, 'School services deleted successfully');
+  }
+
   @Get('public/:slug')
   @ApiOperation({ summary: 'Public school profile by slug (ACTIVE only)' })
   findPublicBySlug(@Param('slug') slug: string) {
     return this.queries.findPublicBySlug(slug);
+  }
+
+  @Get(':schoolId/onboarding')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary:
+      'School onboarding review — checklist, missing fields, completion %, canSubmit',
+  })
+  async getOnboarding(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const review = await this.getSchoolOnboardingReview.execute({
+      schoolId,
+      userId: user.id,
+    });
+    return ok(review, 'School onboarding review');
+  }
+
+  @Post(':schoolId/onboarding/complete')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary:
+      'Complete onboarding when all steps are done (DRAFT → ACTIVE + FREE 30 days)',
+  })
+  async completeOnboarding(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.completeSchoolOnboarding.execute({
+      schoolId,
+      userId: user.id,
+    });
+    return ok(result, 'School onboarding completed successfully');
   }
 
   @Get(':id')

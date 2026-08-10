@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
+import { BillingModule } from '../billing/billing.module';
 import { SCHOOL_REPOSITORY } from './domain/repositories/school.repository';
 import { SCHOOL_LOCATION_REPOSITORY } from './domain/repositories/school-location.repository';
 import { SCHOOL_EDUCATION_LEVEL_REPOSITORY } from './domain/repositories/school-education-level.repository';
@@ -15,6 +16,15 @@ import { SyncSchoolServicesUseCase } from './application/use-cases/sync-school-s
 import { CreateOrUpdateSchoolServiceUseCase } from './application/use-cases/create-or-update-school-service.use-case';
 import { CreateOrUpdateSchoolPriceUseCase } from './application/use-cases/create-or-update-school-price.use-case';
 import { CreateOrUpdateSchoolGalleryUseCase } from './application/use-cases/create-or-update-school-gallery.use-case';
+import { GetSchoolOnboardingReviewUseCase } from './application/use-cases/get-school-onboarding-review.use-case';
+import { CompleteSchoolOnboardingUseCase } from './application/use-cases/complete-school-onboarding.use-case';
+import { DeleteSchoolLogoUseCase } from './application/use-cases/delete-school-logo.use-case';
+import { DeleteSchoolLocationUseCase } from './application/use-cases/delete-school-location.use-case';
+import { DeleteSchoolClassUseCase } from './application/use-cases/delete-school-class.use-case';
+import { DeleteSchoolGalleryItemUseCase } from './application/use-cases/delete-school-gallery-item.use-case';
+import { DeleteSchoolPriceUseCase } from './application/use-cases/delete-school-price.use-case';
+import { DeleteSchoolEducationLevelsUseCase } from './application/use-cases/delete-school-education-levels.use-case';
+import { DeleteSchoolServicesUseCase } from './application/use-cases/delete-school-services.use-case';
 import { SubmitSchoolForActivationUseCase } from './application/use-cases/submit-school-for-activation.use-case';
 import { CheckSchoolActivationEligibilityUseCase } from './application/use-cases/check-school-activation-eligibility.use-case';
 import { PublishSchoolUseCase } from './application/use-cases/publish-school.use-case';
@@ -29,6 +39,8 @@ import { PrismaSchoolClassRepository } from './infrastructure/persistence/prisma
 import { PrismaSchoolServiceRepository } from './infrastructure/persistence/prisma/prisma-school-service.repository';
 import { PrismaSchoolPriceRepository } from './infrastructure/persistence/prisma/prisma-school-price.repository';
 import { PrismaSchoolGalleryRepository } from './infrastructure/persistence/prisma/prisma-school-gallery.repository';
+import { PrismaSchoolOnboardingQuery } from './infrastructure/persistence/prisma/prisma-school-onboarding.query';
+import { SCHOOL_ONBOARDING_QUERY } from './domain/repositories/school-onboarding.query';
 import { SchoolsController } from './infrastructure/http/controllers/schools.controller';
 import { SchoolHttpQueryService } from './infrastructure/http/school-http-query.service';
 
@@ -41,6 +53,15 @@ const schoolUseCases = [
   CreateOrUpdateSchoolServiceUseCase,
   CreateOrUpdateSchoolPriceUseCase,
   CreateOrUpdateSchoolGalleryUseCase,
+  GetSchoolOnboardingReviewUseCase,
+  CompleteSchoolOnboardingUseCase,
+  DeleteSchoolLogoUseCase,
+  DeleteSchoolLocationUseCase,
+  DeleteSchoolClassUseCase,
+  DeleteSchoolGalleryItemUseCase,
+  DeleteSchoolPriceUseCase,
+  DeleteSchoolEducationLevelsUseCase,
+  DeleteSchoolServicesUseCase,
   SubmitSchoolForActivationUseCase,
   CheckSchoolActivationEligibilityUseCase,
   PublishSchoolUseCase,
@@ -50,7 +71,7 @@ const schoolUseCases = [
 ];
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, forwardRef(() => BillingModule)],
   controllers: [SchoolsController],
   providers: [
     { provide: SCHOOL_REPOSITORY, useClass: PrismaSchoolRepository },
@@ -78,6 +99,10 @@ const schoolUseCases = [
       provide: SCHOOL_GALLERY_REPOSITORY,
       useClass: PrismaSchoolGalleryRepository,
     },
+    {
+      provide: SCHOOL_ONBOARDING_QUERY,
+      useClass: PrismaSchoolOnboardingQuery,
+    },
     SchoolAccessAuthorizer,
     SchoolHttpQueryService,
     ...schoolUseCases,
@@ -90,6 +115,7 @@ const schoolUseCases = [
     SCHOOL_SERVICE_REPOSITORY,
     SCHOOL_PRICE_REPOSITORY,
     SCHOOL_GALLERY_REPOSITORY,
+    SCHOOL_ONBOARDING_QUERY,
     SchoolAccessAuthorizer,
     ...schoolUseCases,
   ],

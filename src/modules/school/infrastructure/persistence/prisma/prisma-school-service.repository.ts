@@ -98,6 +98,11 @@ export class PrismaSchoolServiceRepository implements SchoolServiceRepository {
           });
         }
 
+        await tx.school.update({
+          where: { id: schoolId },
+          data: { servicesConfiguredAt: new Date() },
+        });
+
         return desired;
       },
       { maxWait: 10000, timeout: 20000 },

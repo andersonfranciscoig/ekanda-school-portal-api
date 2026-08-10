@@ -133,6 +133,10 @@ export class SchoolClass {
     return this._isActive;
   }
 
+  deactivate(): void {
+    this._isActive = false;
+  }
+
   private static assertValidClassLabel(value: string): string {
     if (typeof value !== 'string') {
       throw new InvalidSchoolClassException('classLabel is required');

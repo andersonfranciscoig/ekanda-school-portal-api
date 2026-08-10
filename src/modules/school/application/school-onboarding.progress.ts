@@ -1,3 +1,14 @@
+import {
+  evaluateSchoolOnboarding,
+  SchoolOnboardingSnapshot,
+} from '../domain/services/school-onboarding.evaluator';
+import {
+  EducationLevelCode,
+  GalleryKind,
+  SchoolClassShift,
+  SchoolStatus,
+} from '../domain/school.enums';
+
 export type SchoolOnboardingProgress = {
   basicInfo: boolean;
   location: boolean;
@@ -8,50 +19,71 @@ export type SchoolOnboardingProgress = {
   completionPercent: number;
 };
 
-const ONBOARDING_STEPS = 6;
-
-export type SchoolOnboardingSource = {
+export type MineOnboardingSource = {
+  id: string;
+  status: SchoolStatus | string;
   name: string;
   description: string | null;
+  servicesConfiguredAt: Date | null;
   location: { province: string; municipality: string } | null;
-  educationLevels: unknown[];
-  classes: unknown[];
-  services: unknown[];
-  price: unknown | null;
-  gallery: unknown[];
+  educationLevels: Array<{ level: EducationLevelCode | string }>;
+  classes: Array<{
+    classLabel: string;
+    vacancies: number;
+    shift: string;
+  }>;
+  price: {
+    currency: string;
+    levels: Array<{
+      levelId: EducationLevelCode | string;
+      tuitionFeeMin: number | null;
+      tuitionFeeMax: number | null;
+    }>;
+  } | null;
+  gallery: Array<{ kind: GalleryKind | string }>;
 };
 
-
 export function buildSchoolOnboardingProgress(
-  school: SchoolOnboardingSource,
+  source: MineOnboardingSource,
 ): SchoolOnboardingProgress {
-  const basicInfo = Boolean(school.name?.trim());
-  const location = Boolean(
-    school.location?.province?.trim() && school.location?.municipality?.trim(),
-  );
-  const educationOffer =
-    (school.educationLevels?.length ?? 0) > 0 ||
-    (school.classes?.length ?? 0) > 0;
-  const services = (school.services?.length ?? 0) > 0;
-  const prices = school.price != null;
-  const gallery = (school.gallery?.length ?? 0) > 0;
+  const snapshot: SchoolOnboardingSnapshot = {
+    schoolId: source.id,
+    status: source.status as SchoolStatus,
+    name: source.name,
+    description: source.description,
+    servicesConfiguredAt: source.servicesConfiguredAt,
+    location: source.location,
+    educationLevels: source.educationLevels.map(
+      (row) => row.level as EducationLevelCode,
+    ),
+    classes: source.classes.map((c) => ({
+      classLabel: c.classLabel,
+      vacancies: c.vacancies,
+      shift: c.shift as SchoolClassShift,
+    })),
+    price: source.price
+      ? {
+          currency: source.price.currency,
+          levels: source.price.levels.map((level) => ({
+            levelId: level.levelId as EducationLevelCode,
+            tuitionFeeMin: level.tuitionFeeMin,
+            tuitionFeeMax: level.tuitionFeeMax,
+          })),
+        }
+      : null,
+    gallery: source.gallery.map((g) => ({
+      kind: g.kind as GalleryKind,
+    })),
+  };
 
-  const completed = [
-    basicInfo,
-    location,
-    educationOffer,
-    services,
-    prices,
-    gallery,
-  ].filter(Boolean).length;
-
+  const review = evaluateSchoolOnboarding(snapshot);
   return {
-    basicInfo,
-    location,
-    educationOffer,
-    services,
-    prices,
-    gallery,
-    completionPercent: Math.round((completed / ONBOARDING_STEPS) * 100),
+    basicInfo: review.steps.basicInfo.completed,
+    location: review.steps.location.completed,
+    educationOffer: review.steps.educationOffer.completed,
+    services: review.steps.services.completed,
+    prices: review.steps.prices.completed,
+    gallery: review.steps.gallery.completed,
+    completionPercent: review.completionPercent,
   };
 }

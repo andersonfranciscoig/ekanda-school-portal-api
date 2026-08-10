@@ -72,6 +72,33 @@ export class PrismaSchoolGalleryRepository implements SchoolGalleryRepository {
     return rows.map((row) => this.toDomain(row));
   }
 
+  async deleteById(schoolId: string, mediaId: string): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.schoolGallery.findFirst({
+        where: { id: mediaId, schoolId },
+      });
+      if (!existing) return false;
+
+      await tx.schoolGallery.delete({ where: { id: mediaId } });
+
+      const remaining = await tx.schoolGallery.findMany({
+        where: { schoolId },
+        orderBy: { order: 'asc' },
+      });
+
+      for (let index = 0; index < remaining.length; index += 1) {
+        if (remaining[index].order !== index) {
+          await tx.schoolGallery.update({
+            where: { id: remaining[index].id },
+            data: { order: index },
+          });
+        }
+      }
+
+      return true;
+    });
+  }
+
   private toDomain(record: GalleryRecord): SchoolGalleryItem {
     return SchoolGalleryItem.rehydrate({
       id: record.id,

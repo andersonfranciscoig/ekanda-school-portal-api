@@ -70,6 +70,13 @@ export class PrismaSchoolLocationRepository
     return this.toDomain(record);
   }
 
+  async deleteBySchoolId(schoolId: string): Promise<boolean> {
+    const result = await this.prisma.schoolLocation.deleteMany({
+      where: { schoolId },
+    });
+    return result.count > 0;
+  }
+
   private toDomain(record: LocationRecord): SchoolLocation {
     const toNumber = (
       value: Prisma.Decimal | number | null,

@@ -9,4 +9,5 @@ export interface SchoolGalleryRepository {
     schoolId: string,
     items: SchoolGalleryItem[],
   ): Promise<SchoolGalleryItem[]>;
+  deleteById(schoolId: string, mediaId: string): Promise<boolean>;
 }

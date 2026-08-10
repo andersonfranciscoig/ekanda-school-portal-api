@@ -481,6 +481,39 @@ export class School extends AggregateRoot {
     this.addDomainEvent(new SchoolSubmittedForActivationEvent(this._id));
   }
 
+  completeOnboarding(): void {
+    if (this._status === SchoolStatus.PENDING_PAYMENT) {
+      return;
+    }
+    if (this._status === SchoolStatus.DRAFT) {
+      this._status = SchoolStatus.PENDING_PAYMENT;
+      this.touch();
+      return;
+    }
+  }
+
+  /**
+   * Activa o colégio após concessão do plano FREE (sem pagamento).
+   * Idempotente em ACTIVE. Aceita DRAFT | PENDING_PAYMENT.
+   */
+  activateWithFreePlan(): void {
+    if (this._status === SchoolStatus.ACTIVE) {
+      return;
+    }
+    if (
+      this._status === SchoolStatus.DRAFT ||
+      this._status === SchoolStatus.PENDING_PAYMENT
+    ) {
+      this._status = SchoolStatus.ACTIVE;
+      this.touch();
+      this.addDomainEvent(new SchoolPublishedEvent(this._id));
+      return;
+    }
+    throw new InvariantViolationException(
+      `Cannot activate free plan for school in state ${this._status}`,
+    );
+  }
+
   publish(snapshot: SchoolActivationSnapshot): void {
     this.assertCanBePublished(snapshot);
     this._status = SchoolStatus.ACTIVE;

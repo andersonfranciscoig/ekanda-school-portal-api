@@ -5,5 +5,6 @@ export * from './confirm-payment.use-case';
 export * from './fail-payment.use-case';
 export * from './cancel-payment.use-case';
 export * from './activate-subscription.use-case';
+export * from './activate-school-free-plan.use-case';
 export * from './expire-subscription.use-case';
 export * from './renew-subscription.use-case';

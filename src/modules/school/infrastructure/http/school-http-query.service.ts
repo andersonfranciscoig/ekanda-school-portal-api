@@ -10,6 +10,7 @@ import {
   SchoolStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
+import { SchoolEntitlementService } from '../../../billing/application/services/school-entitlement.service';
 import { buildSchoolOnboardingProgress } from '../../application/school-onboarding.progress';
 
 const schoolPublicInclude = {
@@ -23,16 +24,32 @@ const schoolPublicInclude = {
 
 const schoolMineInclude = {
   location: true,
-  educationLevels: { select: { id: true } },
-  classes: { where: { isActive: true }, select: { id: true } },
-  services: { select: { id: true } },
-  price: { select: { id: true } },
-  gallery: { select: { id: true } },
+  educationLevels: { select: { level: true } },
+  classes: {
+    where: { isActive: true },
+    select: { classLabel: true, vacancies: true, shift: true },
+  },
+  price: {
+    select: {
+      currency: true,
+      levels: {
+        select: {
+          levelId: true,
+          tuitionFeeMin: true,
+          tuitionFeeMax: true,
+        },
+      },
+    },
+  },
+  gallery: { select: { kind: true } },
 } satisfies Prisma.SchoolInclude;
 
 @Injectable()
 export class SchoolHttpQueryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: SchoolEntitlementService,
+  ) {}
 
   async findMine(userId: string) {
     const memberships = await this.prisma.schoolMembership.findMany({
@@ -41,33 +58,62 @@ export class SchoolHttpQueryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return memberships.map((m) => {
-      const {
-        educationLevels,
-        classes,
-        services,
-        price,
-        gallery,
-        ...school
-      } = m.school;
+    return Promise.all(
+      memberships.map(async (m) => {
+        const {
+          educationLevels,
+          classes,
+          price,
+          gallery,
+          ...school
+        } = m.school;
 
-      return {
-        membership: { id: m.id, role: m.role, status: m.status },
-        school: {
-          ...school,
-          onboarding: buildSchoolOnboardingProgress({
-            name: school.name,
-            description: school.description,
-            location: school.location,
-            educationLevels,
-            classes,
-            services,
-            price,
-            gallery,
-          }),
-        },
-      };
-    });
+        const toNumber = (
+          value: Prisma.Decimal | number | null,
+        ): number | null => {
+          if (value == null) return null;
+          return typeof value === 'number' ? value : value.toNumber();
+        };
+
+        const subscription = await this.entitlements.getDashboardSubscription(
+          school.id,
+        );
+
+        return {
+          membership: { id: m.id, role: m.role, status: m.status },
+          school: {
+            ...school,
+            subscription,
+            onboarding: buildSchoolOnboardingProgress({
+              id: school.id,
+              status: school.status,
+              name: school.name,
+              description: school.description,
+              servicesConfiguredAt: school.servicesConfiguredAt,
+              location: school.location
+                ? {
+                    province: school.location.province,
+                    municipality: school.location.municipality,
+                  }
+                : null,
+              educationLevels,
+              classes,
+              price: price
+                ? {
+                    currency: price.currency,
+                    levels: price.levels.map((level) => ({
+                      levelId: level.levelId,
+                      tuitionFeeMin: toNumber(level.tuitionFeeMin),
+                      tuitionFeeMax: toNumber(level.tuitionFeeMax),
+                    })),
+                  }
+                : null,
+              gallery,
+            }),
+          },
+        };
+      }),
+    );
   }
 
   async findPublicBySlug(slug: string) {
@@ -76,6 +122,10 @@ export class SchoolHttpQueryService {
       include: schoolPublicInclude,
     });
     if (!school) throw new NotFoundException('Colégio não encontrado');
+
+    const visible = await this.entitlements.isPublicProfileVisible(school.id);
+    if (!visible) throw new NotFoundException('Colégio não encontrado');
+
     return school;
   }
 
@@ -104,7 +154,11 @@ export class SchoolHttpQueryService {
       },
     });
     if (!school) throw new NotFoundException('Colégio não encontrado');
-    return school;
+
+    const subscription =
+      await this.entitlements.getDashboardSubscription(schoolId);
+
+    return { ...school, subscription };
   }
 
   async findCreatedDetail(schoolId: string, ownerUserId: string) {
