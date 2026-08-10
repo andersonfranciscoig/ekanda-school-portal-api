@@ -16,13 +16,20 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ConciergeVisitStatus } from '@prisma/client';
 import { ok } from '../../../../../shared/application/api-response';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
+import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../../../identity/infrastructure/auth/optional-jwt-auth.guard';
 import { CreateConciergeSessionUseCase } from '../../../application/use-cases/create-concierge-session.use-case';
 import { GetConciergeSessionUseCase } from '../../../application/use-cases/get-concierge-session.use-case';
 import { ListConciergeSessionsUseCase } from '../../../application/use-cases/list-concierge-sessions.use-case';
+import {
+  DecideConciergeVisitUseCase,
+  ListMyConciergeVisitsUseCase,
+  ListSchoolConciergeVisitsUseCase,
+} from '../../../application/use-cases/manage-concierge-visits.use-case';
 import { PatchConciergeNeedsUseCase } from '../../../application/use-cases/patch-concierge-needs.use-case';
 import { ProcessConciergeTurnUseCase } from '../../../application/use-cases/process-concierge-turn.use-case';
 import { SearchConciergeSessionUseCase } from '../../../application/use-cases/search-concierge-session.use-case';
@@ -35,7 +42,10 @@ import {
   ConciergeTurnBodyDto,
   CreateConciergeSessionBodyDto,
   ListConciergeSessionsQueryDto,
+  ListMyVisitsQueryDto,
+  ListSchoolVisitsQueryDto,
   PatchConciergeNeedsBodyDto,
+  RejectConciergeVisitBodyDto,
   ScheduleConciergeVisitBodyDto,
 } from '../dto/concierge.http-dto';
 
@@ -58,6 +68,9 @@ export class ConciergeController {
     private readonly patchNeeds: PatchConciergeNeedsUseCase,
     private readonly scheduleVisit: ScheduleConciergeVisitUseCase,
     private readonly getVisitByCode: GetConciergeVisitByCodeUseCase,
+    private readonly listSchoolVisits: ListSchoolConciergeVisitsUseCase,
+    private readonly listMyVisits: ListMyConciergeVisitsUseCase,
+    private readonly decideVisit: DecideConciergeVisitUseCase,
   ) {}
 
   @Post('sessions')
@@ -173,6 +186,71 @@ export class ConciergeController {
       userId: user?.id,
     });
     return ok(result, 'Visit scheduled');
+  }
+
+  @Get('visits/mine')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Listar visitas agendadas pelo utilizador autenticado' })
+  async myVisits(
+    @Query() query: ListMyVisitsQueryDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.listMyVisits.execute({
+      userId: user.id,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    return ok(result, 'My visits listed');
+  }
+
+  @Get('visits/school/:schoolId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Listar visitas de um colégio (gestão)' })
+  async schoolVisits(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @Query() query: ListSchoolVisitsQueryDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.listSchoolVisits.execute({
+      schoolId,
+      actorUserId: user.id,
+      status: query.status as ConciergeVisitStatus | undefined,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    return ok(result, 'School visits listed');
+  }
+
+  @Post('visits/:id/confirm')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Aceitar pedido de visita' })
+  async confirmVisit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.decideVisit.execute({
+      visitId: id,
+      actorUserId: user.id,
+      action: 'confirm',
+    });
+    return ok(result, 'Visit confirmed');
+  }
+
+  @Post('visits/:id/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Rejeitar pedido de visita com motivo' })
+  async rejectVisit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RejectConciergeVisitBodyDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const result = await this.decideVisit.execute({
+      visitId: id,
+      actorUserId: user.id,
+      action: 'reject',
+      rejectionReason: body.reason,
+    });
+    return ok(result, 'Visit rejected');
   }
 
   @Get('visits/:code')

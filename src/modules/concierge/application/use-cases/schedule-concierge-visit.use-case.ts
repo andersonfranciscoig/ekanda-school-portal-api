@@ -8,6 +8,7 @@ import {
   InvalidVisitTimeException,
 } from '../../domain/exceptions/concierge.exceptions';
 import { ALLOWED_VISIT_TIMES } from '../../domain/concierge.types';
+import { presentConciergeVisit } from '../../infrastructure/http/concierge-visit.presenter';
 
 export type ScheduleConciergeVisitInput = {
   schoolId: string;
@@ -63,21 +64,10 @@ export class ScheduleConciergeVisitUseCase
         contactPhone: input.contactPhone.trim(),
         status: ConciergeVisitStatus.PENDING_SCHOOL_CONFIRMATION,
       },
+      include: { school: { select: { id: true, name: true, slug: true } } },
     });
 
-    return {
-      id: visit.id,
-      code: visit.code,
-      schoolId: school.id,
-      schoolSlug: school.slug,
-      schoolName: school.name,
-      date: input.date,
-      time: visit.time,
-      contactName: visit.contactName,
-      contactPhone: visit.contactPhone,
-      status: visit.status,
-      createdAt: visit.createdAt.toISOString(),
-    };
+    return presentConciergeVisit(visit);
   }
 }
 
@@ -89,25 +79,12 @@ export class GetConciergeVisitByCodeUseCase
 
   async execute(input: GetConciergeVisitInput) {
     const visit = await this.prisma.conciergeVisit.findUnique({
-      where: { code: input.code },
+      where: { code: input.code.trim().toUpperCase() },
       include: {
         school: { select: { id: true, name: true, slug: true } },
       },
     });
     if (!visit) throw new ConciergeVisitNotFoundException();
-
-    return {
-      id: visit.id,
-      code: visit.code,
-      schoolId: visit.schoolId,
-      schoolSlug: visit.school.slug,
-      schoolName: visit.school.name,
-      date: visit.date.toISOString().slice(0, 10),
-      time: visit.time,
-      contactName: visit.contactName,
-      contactPhone: visit.contactPhone,
-      status: visit.status,
-      createdAt: visit.createdAt.toISOString(),
-    };
+    return presentConciergeVisit(visit);
   }
 }

@@ -183,3 +183,73 @@ export class ScheduleConciergeVisitBodyDto {
   @IsUUID()
   sessionId?: string;
 }
+
+export class ListSchoolVisitsQueryDto {
+  @ApiPropertyOptional({
+    enum: [
+      'PENDING_SCHOOL_CONFIRMATION',
+      'CONFIRMED',
+      'REJECTED',
+      'CANCELLED',
+      'COMPLETED',
+    ],
+  })
+  @IsOptional()
+  @IsIn([
+    'PENDING_SCHOOL_CONFIRMATION',
+    'CONFIRMED',
+    'REJECTED',
+    'CANCELLED',
+    'COMPLETED',
+  ])
+  status?:
+    | 'PENDING_SCHOOL_CONFIRMATION'
+    | 'CONFIRMED'
+    | 'REJECTED'
+    | 'CANCELLED'
+    | 'COMPLETED';
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20, maximum: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
+
+export class ListMyVisitsQueryDto {
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20, maximum: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
+
+export class RejectConciergeVisitBodyDto {
+  @ApiProperty({
+    example: 'Horário indisponível. Pode escolher outro dia?',
+    minLength: 5,
+    maxLength: 500,
+  })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  reason!: string;
+}

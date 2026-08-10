@@ -189,6 +189,7 @@ model User {
   auditLogs                AuditLog[]
   conciergeSessions        ConciergeSession[]
   conciergeVisits          ConciergeVisit[]
+  conciergeVisitsDecided   ConciergeVisit[]            @relation("ConciergeVisitDecidedBy")
 
   @@index([email])
   @@index([phone])
@@ -756,6 +757,7 @@ enum ConciergeMessageKind {
 enum ConciergeVisitStatus {
   PENDING_SCHOOL_CONFIRMATION
   CONFIRMED
+  REJECTED
   CANCELLED
   COMPLETED
 }
@@ -798,26 +800,31 @@ model ConciergeMessage {
 }
 
 model ConciergeVisit {
-  id           String               @id @default(uuid()) @db.Uuid
-  code         String               @unique
-  schoolId     String               @db.Uuid
-  sessionId    String?              @db.Uuid
-  userId       String?              @db.Uuid
-  date         DateTime             @db.Date
-  time         String               @db.VarChar(5)
-  contactName  String
-  contactPhone String
-  status       ConciergeVisitStatus @default(PENDING_SCHOOL_CONFIRMATION)
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id               String               @id @default(uuid()) @db.Uuid
+  code             String               @unique
+  schoolId         String               @db.Uuid
+  sessionId        String?              @db.Uuid
+  userId           String?              @db.Uuid
+  date             DateTime             @db.Date
+  time             String               @db.VarChar(5)
+  contactName      String
+  contactPhone     String
+  status           ConciergeVisitStatus @default(PENDING_SCHOOL_CONFIRMATION)
+  rejectionReason  String?
+  decidedAt        DateTime?
+  decidedByUserId  String?              @db.Uuid
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
-  school  School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  session ConciergeSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  user    User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  school    School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  session   ConciergeSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  decidedBy User?             @relation("ConciergeVisitDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
   @@index([schoolId])
   @@index([sessionId])
   @@index([userId])
   @@index([code])
+  @@index([status])
   @@map("concierge_visits")
 }
