@@ -28,6 +28,7 @@ import { SyncSchoolEducationLevelsUseCase } from '../../../application/use-cases
 import { CreateOrUpdateSchoolClassUseCase } from '../../../application/use-cases/create-or-update-school-class.use-case';
 import { SyncSchoolServicesUseCase } from '../../../application/use-cases/sync-school-services.use-case';
 import { CreateOrUpdateSchoolPriceUseCase } from '../../../application/use-cases/create-or-update-school-price.use-case';
+import { GetSchoolPriceUseCase } from '../../../application/use-cases/get-school-price.use-case';
 import { CreateOrUpdateSchoolGalleryUseCase } from '../../../application/use-cases/create-or-update-school-gallery.use-case';
 import { GetSchoolOnboardingReviewUseCase } from '../../../application/use-cases/get-school-onboarding-review.use-case';
 import { CompleteSchoolOnboardingUseCase } from '../../../application/use-cases/complete-school-onboarding.use-case';
@@ -101,6 +102,7 @@ export class SchoolsController {
     private readonly createOrUpdateSchoolClass: CreateOrUpdateSchoolClassUseCase,
     private readonly syncSchoolServices: SyncSchoolServicesUseCase,
     private readonly createOrUpdateSchoolPrice: CreateOrUpdateSchoolPriceUseCase,
+    private readonly getSchoolPrice: GetSchoolPriceUseCase,
     private readonly createOrUpdateSchoolGallery: CreateOrUpdateSchoolGalleryUseCase,
     private readonly getSchoolOnboardingReview: GetSchoolOnboardingReviewUseCase,
     private readonly completeSchoolOnboarding: CompleteSchoolOnboardingUseCase,
@@ -480,6 +482,21 @@ export class SchoolsController {
       actorUserId: user.id,
     });
     return ok(result, 'School prices deleted successfully');
+  }
+
+  @Get(':schoolId/prices')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get school prices by schoolId (OWNER/ADMIN)' })
+  async getPrices(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const pricing = await this.getSchoolPrice.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(pricing.toSnapshot(), 'School prices');
   }
 
   @Delete(':schoolId/education-levels')

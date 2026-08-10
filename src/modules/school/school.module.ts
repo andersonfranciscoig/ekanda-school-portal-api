@@ -15,6 +15,7 @@ import { CreateOrUpdateSchoolClassUseCase } from './application/use-cases/create
 import { SyncSchoolServicesUseCase } from './application/use-cases/sync-school-services.use-case';
 import { CreateOrUpdateSchoolServiceUseCase } from './application/use-cases/create-or-update-school-service.use-case';
 import { CreateOrUpdateSchoolPriceUseCase } from './application/use-cases/create-or-update-school-price.use-case';
+import { GetSchoolPriceUseCase } from './application/use-cases/get-school-price.use-case';
 import { CreateOrUpdateSchoolGalleryUseCase } from './application/use-cases/create-or-update-school-gallery.use-case';
 import { GetSchoolOnboardingReviewUseCase } from './application/use-cases/get-school-onboarding-review.use-case';
 import { CompleteSchoolOnboardingUseCase } from './application/use-cases/complete-school-onboarding.use-case';
@@ -52,6 +53,7 @@ const schoolUseCases = [
   SyncSchoolServicesUseCase,
   CreateOrUpdateSchoolServiceUseCase,
   CreateOrUpdateSchoolPriceUseCase,
+  GetSchoolPriceUseCase,
   CreateOrUpdateSchoolGalleryUseCase,
   GetSchoolOnboardingReviewUseCase,
   CompleteSchoolOnboardingUseCase,

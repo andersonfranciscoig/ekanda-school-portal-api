@@ -8,7 +8,6 @@ import {
   InvalidPriceRangeException,
   SchoolAccessDeniedException,
   SchoolNotFoundException,
-  SchoolPriceAlreadyExistsException,
   SchoolPriceNotFoundException,
   SchoolPriceAccessDeniedException,
 } from '../../domain/exceptions/school.exceptions';
@@ -192,20 +191,26 @@ describe('CreateOrUpdateSchoolPriceUseCase', () => {
     ).rejects.toBeInstanceOf(InvalidCurrencyException);
   });
 
-  it('rejects create when price already exists', async () => {
-    prices.findBySchoolId.mockResolvedValue(
-      SchoolPricing.rehydrate({
-        id: priceId,
-        schoolId,
-        levels: [],
-        otherFees: null,
-        currency: 'AOA',
-      }),
-    );
+  it('upserts when price already exists without id', async () => {
+    const existing = SchoolPricing.rehydrate({
+      id: priceId,
+      schoolId,
+      levels: [],
+      otherFees: null,
+      currency: 'AOA',
+    });
+    prices.findBySchoolId.mockResolvedValue(existing);
+    prices.findById.mockResolvedValue(existing);
 
-    await expect(
-      useCase.execute({ schoolId, actorUserId, levels: baseLevels }),
-    ).rejects.toBeInstanceOf(SchoolPriceAlreadyExistsException);
+    const result = await useCase.execute({
+      schoolId,
+      actorUserId,
+      levels: baseLevels,
+    });
+
+    expect(result.operation).toBe('updated');
+    expect(prices.update).toHaveBeenCalled();
+    expect(prices.create).not.toHaveBeenCalled();
   });
 
   it('updates existing price by id', async () => {

@@ -9,7 +9,6 @@ import {
   EducationLevelNotOfferedBySchoolException,
   InvalidEducationLevelException,
   SchoolPriceAccessDeniedException,
-  SchoolPriceAlreadyExistsException,
   SchoolPriceNotFoundException,
 } from '../../domain/exceptions/school.exceptions';
 import {
@@ -95,7 +94,8 @@ export class CreateOrUpdateSchoolPriceUseCase
   ): Promise<CreateOrUpdateSchoolPriceOutput> {
     const existing = await this.prices.findBySchoolId(input.schoolId);
     if (existing) {
-      throw new SchoolPriceAlreadyExistsException();
+      // Upsert: se já existem preços e o cliente não enviou id, actualiza
+      return this.update({ ...input, id: existing.id }, levels);
     }
 
     const pricing = SchoolPricing.create({

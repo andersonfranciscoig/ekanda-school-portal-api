@@ -4,20 +4,29 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EducationLevelCode as PrismaEducationLevelCode,
   MembershipStatus,
   Prisma,
   SchoolMembershipRole,
+  SchoolServiceCatalogId as PrismaSchoolServiceCatalogId,
   SchoolStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
 import { SchoolEntitlementService } from '../../../billing/application/services/school-entitlement.service';
 import { buildSchoolOnboardingProgress } from '../../application/school-onboarding.progress';
+import {
+  EducationLevelCode,
+  SchoolServiceCatalogId,
+} from '../../domain/school.enums';
 
 const schoolPublicInclude = {
   location: true,
-  classes: { where: { isActive: true }, orderBy: { classLabel: 'asc' as const } },
+  classes: {
+    where: { isActive: true },
+    orderBy: { classLabel: 'asc' as const },
+  },
   services: { orderBy: { serviceId: 'asc' as const } },
-  price: true,
+  price: { include: { levels: true } },
   gallery: { orderBy: { order: 'asc' as const } },
   educationLevels: true,
 } satisfies Prisma.SchoolInclude;
@@ -31,18 +40,110 @@ const schoolMineInclude = {
   },
   price: {
     select: {
+      id: true,
       currency: true,
+      otherFees: true,
       levels: {
         select: {
           levelId: true,
+          enrollmentFeeMin: true,
+          enrollmentFeeMax: true,
           tuitionFeeMin: true,
           tuitionFeeMax: true,
+          transportFeeMin: true,
+          transportFeeMax: true,
+          mealFeeMin: true,
+          mealFeeMax: true,
         },
       },
     },
   },
   gallery: { select: { kind: true } },
 } satisfies Prisma.SchoolInclude;
+
+const PRISMA_LEVEL_TO_API: Record<
+  PrismaEducationLevelCode,
+  EducationLevelCode
+> = {
+  [PrismaEducationLevelCode.CRECHE]: EducationLevelCode.CRECHE,
+  [PrismaEducationLevelCode.PRE_ESCOLAR]: EducationLevelCode.PRE_ESCOLAR,
+  [PrismaEducationLevelCode.PRIMARIO]: EducationLevelCode.PRIMARIO,
+  [PrismaEducationLevelCode.I_CICLO]: EducationLevelCode.I_CICLO,
+  [PrismaEducationLevelCode.II_CICLO]: EducationLevelCode.II_CICLO,
+  [PrismaEducationLevelCode.MEDIO]: EducationLevelCode.MEDIO,
+};
+
+const PRISMA_SERVICE_TO_API: Record<
+  PrismaSchoolServiceCatalogId,
+  SchoolServiceCatalogId
+> = {
+  [PrismaSchoolServiceCatalogId.TRANSPORTE]: SchoolServiceCatalogId.TRANSPORTE,
+  [PrismaSchoolServiceCatalogId.CANTINA]: SchoolServiceCatalogId.CANTINA,
+  [PrismaSchoolServiceCatalogId.BIBLIOTECA]: SchoolServiceCatalogId.BIBLIOTECA,
+  [PrismaSchoolServiceCatalogId.LABORATORIO]:
+    SchoolServiceCatalogId.LABORATORIO,
+  [PrismaSchoolServiceCatalogId.CAMPO]: SchoolServiceCatalogId.CAMPO,
+  [PrismaSchoolServiceCatalogId.INFORMATICA]:
+    SchoolServiceCatalogId.INFORMATICA,
+  [PrismaSchoolServiceCatalogId.INGLES]: SchoolServiceCatalogId.INGLES,
+  [PrismaSchoolServiceCatalogId.SEGURANCA]: SchoolServiceCatalogId.SEGURANCA,
+  [PrismaSchoolServiceCatalogId.ENFERMARIA]: SchoolServiceCatalogId.ENFERMARIA,
+  [PrismaSchoolServiceCatalogId.EXTRA]: SchoolServiceCatalogId.EXTRA,
+};
+
+function toNumber(
+  value: Prisma.Decimal | number | null | undefined,
+): number | null {
+  if (value == null) return null;
+  return typeof value === 'number' ? value : value.toNumber();
+}
+
+function feeRange(
+  min: Prisma.Decimal | number | null | undefined,
+  max: Prisma.Decimal | number | null | undefined,
+) {
+  return { min: toNumber(min), max: toNumber(max) };
+}
+
+function presentPrice(
+  price: {
+    id: string;
+    schoolId: string;
+    otherFees: Prisma.Decimal | number | null;
+    currency: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+    levels: Array<{
+      id?: string;
+      levelId: PrismaEducationLevelCode;
+      enrollmentFeeMin: Prisma.Decimal | number | null;
+      enrollmentFeeMax: Prisma.Decimal | number | null;
+      tuitionFeeMin: Prisma.Decimal | number | null;
+      tuitionFeeMax: Prisma.Decimal | number | null;
+      transportFeeMin: Prisma.Decimal | number | null;
+      transportFeeMax: Prisma.Decimal | number | null;
+      mealFeeMin: Prisma.Decimal | number | null;
+      mealFeeMax: Prisma.Decimal | number | null;
+    }>;
+  } | null,
+) {
+  if (!price) return null;
+  return {
+    id: price.id,
+    schoolId: price.schoolId,
+    currency: price.currency,
+    otherFees: toNumber(price.otherFees),
+    createdAt: price.createdAt,
+    updatedAt: price.updatedAt,
+    levels: price.levels.map((level) => ({
+      levelId: PRISMA_LEVEL_TO_API[level.levelId],
+      enrollmentFee: feeRange(level.enrollmentFeeMin, level.enrollmentFeeMax),
+      tuitionFee: feeRange(level.tuitionFeeMin, level.tuitionFeeMax),
+      transportFee: feeRange(level.transportFeeMin, level.transportFeeMax),
+      mealFee: feeRange(level.mealFeeMin, level.mealFeeMax),
+    })),
+  };
+}
 
 @Injectable()
 export class SchoolHttpQueryService {
@@ -60,23 +161,15 @@ export class SchoolHttpQueryService {
 
     return Promise.all(
       memberships.map(async (m) => {
-        const {
-          educationLevels,
-          classes,
-          price,
-          gallery,
-          ...school
-        } = m.school;
-
-        const toNumber = (
-          value: Prisma.Decimal | number | null,
-        ): number | null => {
-          if (value == null) return null;
-          return typeof value === 'number' ? value : value.toNumber();
-        };
+        const { educationLevels, classes, price, gallery, ...school } =
+          m.school;
 
         const subscription = await this.entitlements.getDashboardSubscription(
           school.id,
+        );
+
+        const levelsForOnboarding = educationLevels.map(
+          (row) => PRISMA_LEVEL_TO_API[row.level],
         );
 
         return {
@@ -96,13 +189,15 @@ export class SchoolHttpQueryService {
                     municipality: school.location.municipality,
                   }
                 : null,
-              educationLevels,
+              educationLevels: levelsForOnboarding.map((level) => ({
+                level,
+              })),
               classes,
               price: price
                 ? {
                     currency: price.currency,
                     levels: price.levels.map((level) => ({
-                      levelId: level.levelId,
+                      levelId: PRISMA_LEVEL_TO_API[level.levelId],
                       tuitionFeeMin: toNumber(level.tuitionFeeMin),
                       tuitionFeeMax: toNumber(level.tuitionFeeMax),
                     })),
@@ -126,7 +221,7 @@ export class SchoolHttpQueryService {
     const visible = await this.entitlements.isPublicProfileVisible(school.id);
     if (!visible) throw new NotFoundException('Colégio não encontrado');
 
-    return school;
+    return this.presentSchoolDetail(school);
   }
 
   async findOneForMember(schoolId: string, userId: string) {
@@ -158,7 +253,11 @@ export class SchoolHttpQueryService {
     const subscription =
       await this.entitlements.getDashboardSubscription(schoolId);
 
-    return { ...school, subscription };
+    return {
+      ...this.presentSchoolDetail(school),
+      memberships: school.memberships,
+      subscription,
+    };
   }
 
   async findCreatedDetail(schoolId: string, ownerUserId: string) {
@@ -227,5 +326,24 @@ export class SchoolHttpQueryService {
     }
 
     return membership;
+  }
+
+  private presentSchoolDetail(
+    school: Prisma.SchoolGetPayload<{ include: typeof schoolPublicInclude }>,
+  ) {
+    const { price, services, educationLevels, ...rest } = school;
+
+    return {
+      ...rest,
+      educationLevels: educationLevels.map((row) => ({
+        ...row,
+        level: PRISMA_LEVEL_TO_API[row.level],
+      })),
+      services: services.map((row) => ({
+        ...row,
+        serviceId: PRISMA_SERVICE_TO_API[row.serviceId],
+      })),
+      price: presentPrice(price),
+    };
   }
 }
