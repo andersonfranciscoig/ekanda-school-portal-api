@@ -6,6 +6,7 @@ import { SharedInfrastructureModule } from './shared/infrastructure/persistence/
 import { IdentityModule } from './modules/identity/identity.module';
 import { SchoolModule } from './modules/school/school.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
+import { ConciergeModule } from './modules/concierge/concierge.module';
 import { ApplicationModule } from './modules/application/application.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -21,6 +22,7 @@ import { AdministrationModule } from './modules/administration/administration.mo
     IdentityModule,
     SchoolModule,
     MarketplaceModule,
+    ConciergeModule,
     ApplicationModule,
     BillingModule,
     NotificationModule,

@@ -187,6 +187,8 @@ model User {
   recommendations          Recommendation[]
   notifications            Notification[]
   auditLogs                AuditLog[]
+  conciergeSessions        ConciergeSession[]
+  conciergeVisits          ConciergeVisit[]
 
   @@index([email])
   @@index([phone])
@@ -245,6 +247,7 @@ model School {
   favorites       Favorite[]
   reviews         Review[]
   recommendations Recommendation[]
+  conciergeVisits ConciergeVisit[]
 
   @@index([slug])
   @@index([status])
@@ -720,4 +723,101 @@ model AuditLog {
   @@index([createdAt])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// Concierge (chat + ranking + visitas)
+// ─────────────────────────────────────────────
+
+enum ConciergePhase {
+  greeting
+  collecting
+  processing
+  results
+  adjusting
+}
+
+enum ConciergeMessageRole {
+  user
+  assistant
+  system
+}
+
+enum ConciergeMessageKind {
+  text
+  processing
+  results
+  compare
+  decision
+  empty
+  error
+}
+
+enum ConciergeVisitStatus {
+  PENDING_SCHOOL_CONFIRMATION
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model ConciergeSession {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String?        @db.Uuid
+  deviceId  String?
+  title     String         @default("Nova procura")
+  phase     ConciergePhase @default(collecting)
+  needs     Json
+  resultIds String[]       @default([])
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user     User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages ConciergeMessage[]
+  visits   ConciergeVisit[]
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([updatedAt])
+  @@map("concierge_sessions")
+}
+
+model ConciergeMessage {
+  id         String               @id @default(uuid()) @db.Uuid
+  sessionId  String               @db.Uuid
+  role       ConciergeMessageRole
+  kind       ConciergeMessageKind @default(text)
+  content    String
+  colegioIds String[]             @default([])
+  createdAt  DateTime             @default(now())
+
+  session ConciergeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("concierge_messages")
+}
+
+model ConciergeVisit {
+  id           String               @id @default(uuid()) @db.Uuid
+  code         String               @unique
+  schoolId     String               @db.Uuid
+  sessionId    String?              @db.Uuid
+  userId       String?              @db.Uuid
+  date         DateTime             @db.Date
+  time         String               @db.VarChar(5)
+  contactName  String
+  contactPhone String
+  status       ConciergeVisitStatus @default(PENDING_SCHOOL_CONFIRMATION)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  school  School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  session ConciergeSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user    User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([code])
+  @@map("concierge_visits")
 }

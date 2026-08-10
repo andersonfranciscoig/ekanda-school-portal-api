@@ -42,6 +42,12 @@ import { UsersController } from './infrastructure/http/controllers/users.control
     JwtAuthGuard,
     OptionalJwtAuthGuard,
   ],
-  exports: [JwtAuthGuard, PassportModule, JwtModule, GetCurrentUserUseCase],
+  exports: [
+    JwtAuthGuard,
+    OptionalJwtAuthGuard,
+    PassportModule,
+    JwtModule,
+    GetCurrentUserUseCase,
+  ],
 })
 export class IdentityModule {}
