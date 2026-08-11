@@ -140,6 +140,16 @@ export class User extends AggregateRoot {
     }
   }
 
+  activate(): void {
+    this._isActive = true;
+    this._updatedAt = new Date();
+  }
+
+  deactivate(): void {
+    this._isActive = false;
+    this._updatedAt = new Date();
+  }
+
   promoteToSchoolOwner(): void {
     this._role = UserRole.SCHOOL_OWNER;
     this._updatedAt = new Date();

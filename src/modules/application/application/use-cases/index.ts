@@ -3,6 +3,8 @@ export * from './approve-application.use-case';
 export * from './cancel-application.use-case';
 export * from './create-application.use-case';
 export * from './create-or-update-student.use-case';
+export * from './get-application.use-case';
+export * from './list-applications.use-case';
 export * from './reject-application-document.use-case';
 export * from './reject-application.use-case';
 export * from './request-application-document.use-case';

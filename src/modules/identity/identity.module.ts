@@ -51,6 +51,8 @@ import { UsersController } from './infrastructure/http/controllers/users.control
     PassportModule,
     JwtModule,
     GetCurrentUserUseCase,
+    USER_REPOSITORY,
+    PASSWORD_HASHER,
   ],
 })
 export class IdentityModule {}
