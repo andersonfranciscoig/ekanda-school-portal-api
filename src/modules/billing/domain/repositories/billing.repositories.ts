@@ -18,10 +18,10 @@ export interface SubscriptionRepository {
   save(subscription: Subscription): Promise<void>;
   findById(id: string): Promise<Subscription | null>;
   findValidActiveBySchoolId(schoolId: string): Promise<Subscription | null>;
-  /** Qualquer subscription FREE já concedida (activa ou histórica). */
   findFreeBySchoolId(schoolId: string): Promise<Subscription | null>;
-  /** Subscription mais recente da escola (para dashboard). */
   findLatestBySchoolId(schoolId: string): Promise<Subscription | null>;
+  findManyBySchoolId(schoolId: string): Promise<Subscription[]>;
+  findDueForExpiration(now: Date): Promise<Subscription[]>;
   countPaymentsBySubscriptionId(subscriptionId: string): Promise<number>;
 }
 
@@ -34,4 +34,6 @@ export interface PaymentRepository {
   save(payment: Payment): Promise<void>;
   findById(id: string): Promise<Payment | null>;
   findByExternalTransactionId(externalId: string): Promise<Payment | null>;
+  findByExternalReference(reference: string): Promise<Payment | null>;
+  findManyBySchoolId(schoolId: string): Promise<Payment[]>;
 }

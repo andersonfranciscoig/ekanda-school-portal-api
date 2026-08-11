@@ -14,6 +14,7 @@ import { SchoolGalleryItem } from '../entities/school-gallery-item.entity';
 import {
   SchoolCreatedEvent,
   SchoolPublishedEvent,
+  SchoolRejectedEvent,
   SchoolSubmittedForActivationEvent,
   SchoolSuspendedEvent,
   SchoolUpdatedEvent,
@@ -50,6 +51,10 @@ export class School extends AggregateRoot {
     private _gallery: SchoolGalleryItem[],
     private readonly _createdAt: Date,
     private _updatedAt: Date,
+    private _rejectionReason: string | null = null,
+    private _reviewedAt: Date | null = null,
+    private _reviewedByUserId: string | null = null,
+    private _submittedForReviewAt: Date | null = null,
   ) {
     super();
   }
@@ -139,6 +144,10 @@ export class School extends AggregateRoot {
     gallery: SchoolGalleryItem[];
     createdAt: Date;
     updatedAt: Date;
+    rejectionReason?: string | null;
+    reviewedAt?: Date | null;
+    reviewedByUserId?: string | null;
+    submittedForReviewAt?: Date | null;
   }): School {
     return new School(
       params.id,
@@ -162,6 +171,10 @@ export class School extends AggregateRoot {
       params.gallery,
       params.createdAt,
       params.updatedAt,
+      params.rejectionReason ?? null,
+      params.reviewedAt ?? null,
+      params.reviewedByUserId ?? null,
+      params.submittedForReviewAt ?? null,
     );
   }
 
@@ -254,6 +267,22 @@ export class School extends AggregateRoot {
 
   get updatedAt(): Date {
     return this._updatedAt;
+  }
+
+  get rejectionReason(): string | null {
+    return this._rejectionReason;
+  }
+
+  get reviewedAt(): Date | null {
+    return this._reviewedAt;
+  }
+
+  get reviewedByUserId(): string | null {
+    return this._reviewedByUserId;
+  }
+
+  get submittedForReviewAt(): Date | null {
+    return this._submittedForReviewAt;
   }
 
   updateProfile(
@@ -477,6 +506,10 @@ export class School extends AggregateRoot {
       );
     }
     this._status = SchoolStatus.PENDING_REVIEW;
+    this._rejectionReason = null;
+    this._reviewedAt = null;
+    this._reviewedByUserId = null;
+    this._submittedForReviewAt = new Date();
     this.touch();
     this.addDomainEvent(new SchoolSubmittedForActivationEvent(this._id));
   }
@@ -514,9 +547,73 @@ export class School extends AggregateRoot {
     );
   }
 
+  /** Reactiva o colégio após pagamento confirmado (inclui EXPIRED). */
+  activateAfterPaidSubscription(): void {
+    if (
+      this._status === SchoolStatus.ACTIVE ||
+      this._status === SchoolStatus.PENDING_REVIEW ||
+      this._status === SchoolStatus.REJECTED ||
+      this._status === SchoolStatus.SUSPENDED
+    ) {
+      return;
+    }
+    if (
+      this._status === SchoolStatus.DRAFT ||
+      this._status === SchoolStatus.PENDING_PAYMENT ||
+      this._status === SchoolStatus.EXPIRED
+    ) {
+      this._status = SchoolStatus.ACTIVE;
+      this.touch();
+      this.addDomainEvent(new SchoolPublishedEvent(this._id));
+      return;
+    }
+    throw new InvariantViolationException(
+      `Cannot activate paid subscription for school in state ${this._status}`,
+    );
+  }
+
+  approveFromReview(actorUserId: string): void {
+    if (this._status !== SchoolStatus.PENDING_REVIEW) {
+      throw new InvariantViolationException(
+        `Cannot approve school in state ${this._status}`,
+      );
+    }
+    this._status = SchoolStatus.ACTIVE;
+    this._rejectionReason = null;
+    this._reviewedAt = new Date();
+    this._reviewedByUserId = actorUserId;
+    this.touch();
+    this.addDomainEvent(new SchoolPublishedEvent(this._id));
+  }
+
+  rejectFromReview(actorUserId: string, reason: string): void {
+    if (this._status !== SchoolStatus.PENDING_REVIEW) {
+      throw new InvariantViolationException(
+        `Cannot reject school in state ${this._status}`,
+      );
+    }
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      throw new InvariantViolationException(
+        'Rejection reason must have at least 5 characters',
+      );
+    }
+    this._status = SchoolStatus.REJECTED;
+    this._rejectionReason = trimmed;
+    this._reviewedAt = new Date();
+    this._reviewedByUserId = actorUserId;
+    this.touch();
+    this.addDomainEvent(new SchoolRejectedEvent(this._id, trimmed));
+  }
+
   publish(snapshot: SchoolActivationSnapshot): void {
     this.assertCanBePublished(snapshot);
+    if (this._status === SchoolStatus.PENDING_REVIEW) {
+      this.approveFromReview('system');
+      return;
+    }
     this._status = SchoolStatus.ACTIVE;
+    this._rejectionReason = null;
     this.touch();
     this.addDomainEvent(new SchoolPublishedEvent(this._id));
   }

@@ -11,6 +11,13 @@ import {
   SubscriptionRepository,
 } from '../../domain/repositories/billing.repositories';
 import {
+  APPLICATION_RECEIVE_FEATURES,
+} from '../../domain/plan-feature-codes';
+import {
+  SchoolFeatureNotAllowedException,
+  SchoolSubscriptionExpiredException,
+} from '../../domain/exceptions/billing.exceptions';
+import {
   canAccessFeature,
   canShowPublicProfile,
   SubscriptionDashboardDto,
@@ -40,6 +47,21 @@ export class SchoolEntitlementService {
       featureCode,
       now,
     });
+  }
+
+  async assertCanReceiveApplications(schoolId: string, now = new Date()) {
+    const ctx = await this.loadContext(schoolId, now);
+    if (!ctx.subscription || !ctx.plan || !ctx.subscription.isValidNow(now)) {
+      throw new SchoolSubscriptionExpiredException();
+    }
+    const allowed = APPLICATION_RECEIVE_FEATURES.some((code) =>
+      ctx.plan!.hasFeature(code),
+    );
+    if (!allowed) {
+      throw new SchoolFeatureNotAllowedException(
+        'School plan does not include APPLICATIONS_RECEIVE',
+      );
+    }
   }
 
   async isPublicProfileVisible(schoolId: string, now = new Date()) {

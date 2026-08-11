@@ -24,19 +24,32 @@ export class SubscriptionExpiredEvent extends DomainEvent {
   }
 }
 
-/**
- * Subscription Aggregate.
- * ACTIVE pago exige pagamento válido; FREE activa-se sem Payment.
- */
+export class SubscriptionCancelledEvent extends DomainEvent {
+  constructor(subscriptionId: string) {
+    super(subscriptionId, 'subscription.cancelled');
+  }
+}
+
+export class SubscriptionRenewedEvent extends DomainEvent {
+  constructor(subscriptionId: string) {
+    super(subscriptionId, 'subscription.renewed');
+  }
+}
+
+
 export class Subscription extends AggregateRoot {
   private constructor(
     private readonly _id: string,
     private readonly _schoolId: string,
-    private readonly _planId: string,
+    private _planId: string,
     private _status: SubscriptionStatus,
     private _startDate: Date | null,
     private _endDate: Date | null,
     private _autoRenew: boolean,
+    private _cancelAtPeriodEnd: boolean,
+    private _cancelledAt: Date | null,
+    private _trialStartedAt: Date | null,
+    private _trialEndsAt: Date | null,
   ) {
     super();
   }
@@ -49,6 +62,10 @@ export class Subscription extends AggregateRoot {
     startDate: Date | null;
     endDate: Date | null;
     autoRenew: boolean;
+    cancelAtPeriodEnd?: boolean;
+    cancelledAt?: Date | null;
+    trialStartedAt?: Date | null;
+    trialEndsAt?: Date | null;
   }): Subscription {
     return new Subscription(
       params.id,
@@ -58,6 +75,30 @@ export class Subscription extends AggregateRoot {
       params.startDate,
       params.endDate,
       params.autoRenew,
+      params.cancelAtPeriodEnd ?? false,
+      params.cancelledAt ?? null,
+      params.trialStartedAt ?? null,
+      params.trialEndsAt ?? null,
+    );
+  }
+
+  static createPending(params: {
+    id: string;
+    schoolId: string;
+    planId: string;
+  }): Subscription {
+    return new Subscription(
+      params.id,
+      params.schoolId,
+      params.planId,
+      SubscriptionStatus.PENDING,
+      null,
+      null,
+      false,
+      false,
+      null,
+      null,
+      null,
     );
   }
 
@@ -89,6 +130,10 @@ export class Subscription extends AggregateRoot {
       params.startDate,
       endDate,
       false,
+      false,
+      null,
+      params.startDate,
+      endDate,
     );
     subscription.addDomainEvent(new SubscriptionActivatedEvent(params.id));
     return subscription;
@@ -122,6 +167,22 @@ export class Subscription extends AggregateRoot {
     return this._autoRenew;
   }
 
+  get cancelAtPeriodEnd(): boolean {
+    return this._cancelAtPeriodEnd;
+  }
+
+  get cancelledAt(): Date | null {
+    return this._cancelledAt;
+  }
+
+  get trialStartedAt(): Date | null {
+    return this._trialStartedAt;
+  }
+
+  get trialEndsAt(): Date | null {
+    return this._trialEndsAt;
+  }
+
   activate(params: {
     planIsActive: boolean;
     hasValidPayment: boolean;
@@ -142,7 +203,44 @@ export class Subscription extends AggregateRoot {
     if (params.endDate !== undefined) {
       this._endDate = params.endDate;
     }
+    this._cancelAtPeriodEnd = false;
+    this._cancelledAt = null;
     this.addDomainEvent(new SubscriptionActivatedEvent(this._id));
+  }
+
+  renew(params: {
+    hasValidPayment: boolean;
+    startDate: Date;
+    endDate: Date;
+  }): void {
+    if (!params.hasValidPayment) {
+      throw new InvariantViolationException('Pagamento válido é obrigatório');
+    }
+    this._status = SubscriptionStatus.ACTIVE;
+    this._startDate = params.startDate;
+    this._endDate = params.endDate;
+    this._cancelAtPeriodEnd = false;
+    this._cancelledAt = null;
+    this.addDomainEvent(new SubscriptionRenewedEvent(this._id));
+  }
+
+  changePlan(planId: string): void {
+    if (!planId) {
+      throw new InvariantViolationException('planId é obrigatório');
+    }
+    this._planId = planId;
+  }
+
+  scheduleCancelAtPeriodEnd(now = new Date()): void {
+    if (this._status !== SubscriptionStatus.ACTIVE) {
+      throw new InvariantViolationException(
+        'Só é possível cancelar a renovação de uma subscrição ACTIVE',
+      );
+    }
+    this._cancelAtPeriodEnd = true;
+    this._autoRenew = false;
+    this._cancelledAt = now;
+    this.addDomainEvent(new SubscriptionCancelledEvent(this._id));
   }
 
   expire(): void {

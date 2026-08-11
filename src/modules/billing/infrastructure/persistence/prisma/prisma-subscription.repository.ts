@@ -25,12 +25,20 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
         startDate: subscription.startDate,
         endDate: subscription.endDate,
         autoRenew: subscription.autoRenew,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        cancelledAt: subscription.cancelledAt,
+        trialStartedAt: subscription.trialStartedAt,
+        trialEndsAt: subscription.trialEndsAt,
       },
       update: {
         status: subscription.status as PrismaSubscriptionStatus,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
         autoRenew: subscription.autoRenew,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        cancelledAt: subscription.cancelledAt,
+        trialStartedAt: subscription.trialStartedAt,
+        trialEndsAt: subscription.trialEndsAt,
         planId: subscription.planId,
       },
     });
@@ -78,6 +86,25 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
     return record ? this.toDomain(record) : null;
   }
 
+  async findManyBySchoolId(schoolId: string): Promise<Subscription[]> {
+    const records = await this.prisma.subscription.findMany({
+      where: { schoolId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return records.map((record) => this.toDomain(record));
+  }
+
+  async findDueForExpiration(now: Date): Promise<Subscription[]> {
+    const records = await this.prisma.subscription.findMany({
+      where: {
+        status: PrismaSubscriptionStatus.ACTIVE,
+        endDate: { lte: now },
+      },
+      orderBy: { endDate: 'asc' },
+    });
+    return records.map((record) => this.toDomain(record));
+  }
+
   async countPaymentsBySubscriptionId(
     subscriptionId: string,
   ): Promise<number> {
@@ -92,6 +119,10 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
     startDate: Date | null;
     endDate: Date | null;
     autoRenew: boolean;
+    cancelAtPeriodEnd?: boolean;
+    cancelledAt?: Date | null;
+    trialStartedAt?: Date | null;
+    trialEndsAt?: Date | null;
   }): Subscription {
     return Subscription.rehydrate({
       id: record.id,
@@ -101,6 +132,10 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
       startDate: record.startDate,
       endDate: record.endDate,
       autoRenew: record.autoRenew,
+      cancelAtPeriodEnd: record.cancelAtPeriodEnd,
+      cancelledAt: record.cancelledAt,
+      trialStartedAt: record.trialStartedAt,
+      trialEndsAt: record.trialEndsAt,
     });
   }
 }

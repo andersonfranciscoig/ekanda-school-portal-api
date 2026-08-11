@@ -17,6 +17,7 @@ import { ActivateSchoolFreePlanUseCase } from '../../../billing/application/use-
 import { SubscriptionDashboardDto } from '../../../billing/domain/services/subscription-access.service';
 import { SchoolAccessAuthorizer } from '../services/school-access.authorizer';
 import { GetSchoolOnboardingReviewUseCase } from './get-school-onboarding-review.use-case';
+import { SubmitSchoolForActivationUseCase } from './submit-school-for-activation.use-case';
 
 export type CompleteSchoolOnboardingInput = {
   schoolId: string;
@@ -30,6 +31,12 @@ export type CompleteSchoolOnboardingOutput = {
   subscription: SubscriptionDashboardDto;
 };
 
+const SUBMITTABLE: SchoolStatus[] = [
+  SchoolStatus.DRAFT,
+  SchoolStatus.REJECTED,
+  SchoolStatus.PENDING_PAYMENT,
+];
+
 @Injectable()
 export class CompleteSchoolOnboardingUseCase
   implements
@@ -41,12 +48,12 @@ export class CompleteSchoolOnboardingUseCase
     private readonly schools: SchoolRepository,
     private readonly access: SchoolAccessAuthorizer,
     private readonly activateFreePlan: ActivateSchoolFreePlanUseCase,
+    private readonly submitForActivation: SubmitSchoolForActivationUseCase,
   ) {}
 
   async execute(
     input: CompleteSchoolOnboardingInput,
   ): Promise<CompleteSchoolOnboardingOutput> {
-    // Auth is enforced inside getReview (exists + OWNER/ADMIN ACTIVE).
     const review = await this.getReview.execute({
       schoolId: input.schoolId,
       userId: input.userId,
@@ -70,12 +77,24 @@ export class CompleteSchoolOnboardingUseCase
       schoolId: input.schoolId,
     });
 
+    let status = freePlanResult.schoolStatus;
+    const latest = await this.schools.findById(input.schoolId);
+    if (latest && SUBMITTABLE.includes(latest.status)) {
+      const submitted = await this.submitForActivation.execute({
+        schoolId: input.schoolId,
+        userId: input.userId,
+      });
+      status = submitted.status;
+    } else if (latest) {
+      status = latest.status;
+    }
+
     return {
       schoolId: freePlanResult.schoolId,
-      status: freePlanResult.schoolStatus,
+      status,
       review: {
         ...review,
-        status: freePlanResult.schoolStatus,
+        status,
       },
       subscription: freePlanResult.subscription,
     };

@@ -3,7 +3,6 @@ import { UseCase } from '../../../../shared/application/use-case';
 import { SchoolLocation } from '../../domain/entities/school-location.entity';
 import {
   SchoolLocationAccessDeniedException,
-  SchoolLocationAlreadyExistsException,
   SchoolLocationNotFoundException,
 } from '../../domain/exceptions/school.exceptions';
 import {
@@ -53,16 +52,18 @@ export class CreateOrUpdateSchoolLocationUseCase
     if (input.id) {
       return this.update(input);
     }
+
+    const existing = await this.locations.findBySchoolId(input.schoolId);
+    if (existing) {
+      return this.update({ ...input, id: existing.id });
+    }
+
     return this.create(input);
   }
 
   private async create(
     input: CreateOrUpdateSchoolLocationInput,
   ): Promise<CreateOrUpdateSchoolLocationOutput> {
-    const existing = await this.locations.findBySchoolId(input.schoolId);
-    if (existing) {
-      throw new SchoolLocationAlreadyExistsException();
-    }
 
     const location = SchoolLocation.create({
       id: crypto.randomUUID(),

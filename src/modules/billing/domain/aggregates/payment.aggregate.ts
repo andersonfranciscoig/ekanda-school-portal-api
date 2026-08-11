@@ -44,8 +44,11 @@ export class Payment extends AggregateRoot {
     private readonly _method: string,
     private _status: PaymentStatus,
     private _externalTransactionId: string | null,
+    private _externalReference: string | null,
+    private _expressPhone: string | null,
     private _paidAt: Date | null,
     private _failureReason: string | null,
+    private _metadata: Record<string, unknown> | null,
   ) {
     super();
   }
@@ -57,6 +60,9 @@ export class Payment extends AggregateRoot {
     method: string;
     subscriptionId?: string | null;
     planId?: string | null;
+    expressPhone?: string | null;
+    externalReference?: string | null;
+    metadata?: Record<string, unknown> | null;
   }): Payment {
     const payment = new Payment(
       params.id,
@@ -67,8 +73,11 @@ export class Payment extends AggregateRoot {
       params.method,
       PaymentStatus.PENDING,
       null,
+      params.externalReference ?? params.id,
+      params.expressPhone ?? null,
       null,
       null,
+      params.metadata ?? null,
     );
     payment.addDomainEvent(new PaymentCreatedEvent(params.id));
     return payment;
@@ -83,8 +92,11 @@ export class Payment extends AggregateRoot {
     method: string;
     status: PaymentStatus;
     externalTransactionId: string | null;
+    externalReference?: string | null;
+    expressPhone?: string | null;
     paidAt: Date | null;
     failureReason: string | null;
+    metadata?: Record<string, unknown> | null;
   }): Payment {
     return new Payment(
       params.id,
@@ -95,8 +107,11 @@ export class Payment extends AggregateRoot {
       params.method,
       params.status,
       params.externalTransactionId,
+      params.externalReference ?? null,
+      params.expressPhone ?? null,
       params.paidAt,
       params.failureReason,
+      params.metadata ?? null,
     );
   }
 
@@ -116,8 +131,51 @@ export class Payment extends AggregateRoot {
     return this._amount;
   }
 
+  get subscriptionId(): string | null {
+    return this._subscriptionId;
+  }
+
+  get planId(): string | null {
+    return this._planId;
+  }
+
+  get method(): string {
+    return this._method;
+  }
+
+  get externalTransactionId(): string | null {
+    return this._externalTransactionId;
+  }
+
+  get externalReference(): string | null {
+    return this._externalReference;
+  }
+
+  get expressPhone(): string | null {
+    return this._expressPhone;
+  }
+
+  get paidAt(): Date | null {
+    return this._paidAt;
+  }
+
+  get failureReason(): string | null {
+    return this._failureReason;
+  }
+
+  get metadata(): Record<string, unknown> | null {
+    return this._metadata;
+  }
+
+  markProcessing(): void {
+    if (this._status === PaymentStatus.PENDING) {
+      this._status = PaymentStatus.PROCESSING;
+    }
+  }
+
   /**
-   * Confirmação só com evidência do gateway.
+   * Confirmação só com evidência do gateway (ou simulador Express interno).
+   * Idempotente se já PAID com o mesmo externalTransactionId.
    */
   confirmFromGateway(params: {
     externalTransactionId: string;
@@ -126,6 +184,14 @@ export class Payment extends AggregateRoot {
     if (!params.externalTransactionId?.trim()) {
       throw new InvariantViolationException(
         'Confirmação de pagamento requer externalTransactionId do gateway',
+      );
+    }
+    if (this._status === PaymentStatus.PAID) {
+      if (this._externalTransactionId === params.externalTransactionId.trim()) {
+        return;
+      }
+      throw new InvariantViolationException(
+        'Pagamento já confirmado com outra referência',
       );
     }
     if (

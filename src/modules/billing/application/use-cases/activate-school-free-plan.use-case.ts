@@ -84,13 +84,6 @@ export class ActivateSchoolFreePlanUseCase
           school.expire();
           await this.schools.save(school);
         }
-      } else if (
-        existingFree.isValidNow(now) &&
-        school.status !== SchoolStatus.ACTIVE &&
-        school.status !== SchoolStatus.SUSPENDED
-      ) {
-        school.activateWithFreePlan();
-        await this.schools.save(school);
       }
 
       return {
@@ -127,10 +120,7 @@ export class ActivateSchoolFreePlanUseCase
       durationDays: FREE_PLAN_DURATION_DAYS,
     });
 
-    school.activateWithFreePlan();
-
     await this.subscriptions.save(subscription);
-    await this.schools.save(school);
 
     return {
       schoolId: school.id,

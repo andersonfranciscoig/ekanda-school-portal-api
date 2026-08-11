@@ -49,6 +49,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       message: exception.message,
     };
 
+    if ('code' in exception && typeof exception.code === 'string') {
+      body.code = exception.code;
+    }
+
     if (exception instanceof SchoolOnboardingIncompleteException) {
       body.incompleteSteps = exception.incompleteSteps;
       if (exception.review) {

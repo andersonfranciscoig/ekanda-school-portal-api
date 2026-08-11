@@ -558,7 +558,7 @@ export class SchoolsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary:
-      'Complete onboarding when all steps are done (DRAFT → ACTIVE + FREE 30 days)',
+      'Concluir cadastro: plano FREE + submissão para PENDING_REVIEW',
   })
   async completeOnboarding(
     @Param('schoolId', ParseUUIDPipe) schoolId: string,

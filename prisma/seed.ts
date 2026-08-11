@@ -33,6 +33,11 @@ const PRESENCE_FEATURES = [
     description: 'Consultar candidaturas recebidas',
   },
   {
+    code: 'APPLICATIONS_RECEIVE',
+    name: 'Receber candidaturas',
+    description: 'Permitir que encarregados submetam novas candidaturas',
+  },
+  {
     code: 'MANAGE_APPLICATIONS',
     name: 'Gerir candidaturas',
     description: 'Aceitar, rejeitar e solicitar documentos',

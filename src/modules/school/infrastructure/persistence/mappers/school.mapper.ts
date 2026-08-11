@@ -27,6 +27,10 @@ type PrismaSchoolRecord = {
   facebook?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  rejectionReason?: string | null;
+  reviewedAt?: Date | null;
+  reviewedByUserId?: string | null;
+  submittedForReviewAt?: Date | null;
   location?: {
     id: string;
     province: string;
@@ -151,6 +155,10 @@ export class SchoolMapper {
       ),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      rejectionReason: record.rejectionReason ?? null,
+      reviewedAt: record.reviewedAt ?? null,
+      reviewedByUserId: record.reviewedByUserId ?? null,
+      submittedForReviewAt: record.submittedForReviewAt ?? null,
     });
   }
 
@@ -170,6 +178,10 @@ export class SchoolMapper {
       approximateStudents: school.approximateStudents,
       instagram: school.instagram,
       facebook: school.facebook,
+      rejectionReason: school.rejectionReason,
+      reviewedAt: school.reviewedAt,
+      reviewedByUserId: school.reviewedByUserId,
+      submittedForReviewAt: school.submittedForReviewAt,
     };
   }
 }

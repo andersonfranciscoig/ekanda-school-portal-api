@@ -36,3 +36,9 @@ export class SchoolSuspendedEvent extends DomainEvent {
     super(schoolId, 'school.suspended');
   }
 }
+
+export class SchoolRejectedEvent extends DomainEvent {
+  constructor(schoolId: string, public readonly reason: string) {
+    super(schoolId, 'school.rejected');
+  }
+}

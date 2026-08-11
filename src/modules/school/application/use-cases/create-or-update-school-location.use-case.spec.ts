@@ -4,7 +4,6 @@ import {
   InvalidSchoolLocationException,
   SchoolAccessDeniedException,
   SchoolLocationAccessDeniedException,
-  SchoolLocationAlreadyExistsException,
   SchoolLocationNotFoundException,
   SchoolNotFoundException,
 } from '../../domain/exceptions/school.exceptions';
@@ -129,19 +128,21 @@ describe('CreateOrUpdateSchoolLocationUseCase', () => {
       );
     });
 
-    it('rejects create when location already exists', async () => {
-      locations.findBySchoolId.mockResolvedValue(
-        SchoolLocation.create({
-          id: locationId,
-          schoolId,
-          province: 'Luanda',
-          municipality: 'Belas',
-        }),
-      );
+    it('updates existing location when id is omitted', async () => {
+      const existing = SchoolLocation.create({
+        id: locationId,
+        schoolId,
+        province: 'Luanda',
+        municipality: 'Belas',
+      });
+      locations.findBySchoolId.mockResolvedValue(existing);
+      locations.findById.mockResolvedValue(existing);
 
-      await expect(useCase.execute(baseInput)).rejects.toBeInstanceOf(
-        SchoolLocationAlreadyExistsException,
-      );
+      const result = await useCase.execute(baseInput);
+
+      expect(result.operation).toBe('updated');
+      expect(result.location.id).toBe(locationId);
+      expect(locations.update).toHaveBeenCalled();
       expect(locations.create).not.toHaveBeenCalled();
     });
 

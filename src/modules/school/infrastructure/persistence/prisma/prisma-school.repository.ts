@@ -43,6 +43,10 @@ export class PrismaSchoolRepository implements SchoolRepository {
         approximateStudents: data.approximateStudents,
         instagram: data.instagram,
         facebook: data.facebook,
+        rejectionReason: data.rejectionReason,
+        reviewedAt: data.reviewedAt,
+        reviewedByUserId: data.reviewedByUserId,
+        submittedForReviewAt: data.submittedForReviewAt,
       },
     });
   }

@@ -13,6 +13,7 @@ import { JwtTokenIssuer } from './infrastructure/auth/jwt-token.issuer';
 import { JwtStrategy } from './infrastructure/auth/jwt.strategy';
 import { JwtAuthGuard } from './infrastructure/auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './infrastructure/auth/optional-jwt-auth.guard';
+import { RolesGuard } from './infrastructure/auth/roles.guard';
 import { AuthController } from './infrastructure/http/controllers/auth.controller';
 import { UsersController } from './infrastructure/http/controllers/users.controller';
 
@@ -41,10 +42,12 @@ import { UsersController } from './infrastructure/http/controllers/users.control
     JwtStrategy,
     JwtAuthGuard,
     OptionalJwtAuthGuard,
+    RolesGuard,
   ],
   exports: [
     JwtAuthGuard,
     OptionalJwtAuthGuard,
+    RolesGuard,
     PassportModule,
     JwtModule,
     GetCurrentUserUseCase,

@@ -103,7 +103,7 @@ describe('School onboarding use cases', () => {
     activateFreePlan = {
       execute: jest.fn().mockResolvedValue({
         schoolId,
-        schoolStatus: SchoolStatus.ACTIVE,
+        schoolStatus: SchoolStatus.DRAFT,
         subscription: freeSubscriptionDto,
         created: true,
       }),
@@ -112,11 +112,18 @@ describe('School onboarding use cases', () => {
       onboardingQuery as never,
       access as unknown as SchoolAccessAuthorizer,
     );
+    const submitForActivation = {
+      execute: jest.fn().mockResolvedValue({
+        schoolId,
+        status: SchoolStatus.PENDING_REVIEW,
+      }),
+    };
     complete = new CompleteSchoolOnboardingUseCase(
       getReview,
       schools as never,
       access as unknown as SchoolAccessAuthorizer,
       activateFreePlan as unknown as ActivateSchoolFreePlanUseCase,
+      submitForActivation as never,
     );
   });
 
@@ -184,9 +191,9 @@ describe('School onboarding use cases', () => {
       }
     });
 
-    it('changes DRAFT → ACTIVE with FREE subscription', async () => {
+    it('changes DRAFT → PENDING_REVIEW with FREE subscription', async () => {
       const result = await complete.execute({ schoolId, userId });
-      expect(result.status).toBe(SchoolStatus.ACTIVE);
+      expect(result.status).toBe(SchoolStatus.PENDING_REVIEW);
       expect(result.subscription.planCode).toBe(PlanCode.FREE);
       expect(result.subscription.daysRemaining).toBe(30);
       expect(activateFreePlan.execute).toHaveBeenCalledWith({ schoolId });
@@ -195,13 +202,13 @@ describe('School onboarding use cases', () => {
     it('is idempotent when free plan already active', async () => {
       activateFreePlan.execute.mockResolvedValue({
         schoolId,
-        schoolStatus: SchoolStatus.ACTIVE,
+        schoolStatus: SchoolStatus.DRAFT,
         subscription: freeSubscriptionDto,
         created: false,
       });
 
       const result = await complete.execute({ schoolId, userId });
-      expect(result.status).toBe(SchoolStatus.ACTIVE);
+      expect(result.status).toBe(SchoolStatus.PENDING_REVIEW);
       expect(activateFreePlan.execute).toHaveBeenCalledTimes(1);
     });
 

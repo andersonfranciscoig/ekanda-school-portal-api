@@ -68,11 +68,11 @@ describe('ActivateSchoolFreePlanUseCase', () => {
     );
   });
 
-  it('cria FREE ACTIVE por 30 dias e School ACTIVE (cenário 1)', async () => {
+  it('cria FREE ACTIVE por 30 dias sem publicar o colégio (cenário 1)', async () => {
     const result = await useCase.execute({ schoolId, now });
 
     expect(result.created).toBe(true);
-    expect(result.schoolStatus).toBe(SchoolStatus.ACTIVE);
+    expect(result.schoolStatus).toBe(SchoolStatus.DRAFT);
     expect(result.subscription.planCode).toBe(PlanCode.FREE);
     expect(result.subscription.status).toBe(SubscriptionStatus.ACTIVE);
     expect(result.subscription.isFree).toBe(true);
@@ -83,7 +83,7 @@ describe('ActivateSchoolFreePlanUseCase', () => {
     );
     expect(result.subscription.daysRemaining).toBe(30);
     expect(subscriptions.save).toHaveBeenCalledTimes(1);
-    expect(schools.save).toHaveBeenCalledTimes(1);
+    expect(schools.save).not.toHaveBeenCalled();
 
     const savedSub = subscriptions.save.mock.calls[0][0] as Subscription;
     expect(savedSub.autoRenew).toBe(false);

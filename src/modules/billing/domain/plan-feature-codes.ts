@@ -1,12 +1,20 @@
 export const PlanFeatureCode = {
   PUBLIC_PROFILE: 'PUBLIC_PROFILE',
   MARKETPLACE_LISTING: 'MARKETPLACE_LISTING',
+  APPLICATIONS_RECEIVE: 'APPLICATIONS_RECEIVE',
   APPLICATIONS_MANAGEMENT: 'APPLICATIONS_MANAGEMENT',
   SCHOOL_MANAGEMENT: 'SCHOOL_MANAGEMENT',
   STUDENT_MANAGEMENT: 'STUDENT_MANAGEMENT',
   MANAGE_APPLICATIONS: 'MANAGE_APPLICATIONS',
   MANAGE_STUDENTS: 'MANAGE_STUDENTS',
 } as const;
+
+/** Features that allow a school to receive new applications. */
+export const APPLICATION_RECEIVE_FEATURES: readonly string[] = [
+  PlanFeatureCode.APPLICATIONS_RECEIVE,
+  PlanFeatureCode.MANAGE_APPLICATIONS,
+  PlanFeatureCode.APPLICATIONS_MANAGEMENT,
+];
 
 export type PlanFeatureCode =
   (typeof PlanFeatureCode)[keyof typeof PlanFeatureCode];
