@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UseCase } from '../../../../shared/application/use-case';
+import { AUDIT_LOGGER } from '../../../../shared/application/ports/audit-logger.port';
+import type { AuditLogger } from '../../../../shared/application/ports/audit-logger.port';
 import {
   BusinessRuleViolationException,
   EntityNotFoundException,
@@ -24,6 +26,7 @@ export class PatchAdminUserUseCase
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly prisma: PrismaService,
+    @Inject(AUDIT_LOGGER) private readonly audit: AuditLogger,
   ) {}
 
   async execute(input: PatchAdminUserInput) {
@@ -44,6 +47,16 @@ export class PatchAdminUserUseCase
       where: { id: user.id },
       include: { platformRoles: { select: { role: true } } },
     });
-    return presentAdminUser(row);
+    const presented = presentAdminUser(row);
+    await this.audit.log({
+      actorUserId: input.actorUserId,
+      action: input.isActive ? 'USER_ACTIVATED' : 'USER_SUSPENDED',
+      entity: 'USER',
+      entityId: user.id,
+      oldData: { isActive: !input.isActive },
+      newData: { isActive: input.isActive },
+      metadata: { entityLabel: presented.name },
+    });
+    return presented;
   }
 }

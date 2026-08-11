@@ -1,21 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SchoolStatus } from '@prisma/client';
+import { SchoolStatus as PrismaSchoolStatus } from '@prisma/client';
+import { SchoolStatus } from '../../../../school/domain/school.enums';
 import { Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
   MinLength,
 } from 'class-validator';
 
 export class AdminSchoolsQueryDto {
-  @ApiPropertyOptional({ enum: SchoolStatus })
+  @ApiPropertyOptional({ enum: PrismaSchoolStatus })
   @IsOptional()
-  @IsEnum(SchoolStatus)
-  status?: SchoolStatus;
+  @IsEnum(PrismaSchoolStatus)
+  status?: PrismaSchoolStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -43,4 +46,34 @@ export class RejectSchoolBodyDto {
   @IsString()
   @MinLength(5)
   reason!: string;
+}
+
+export class PatchSchoolStatusBodyDto {
+  @ApiProperty({ enum: SchoolStatus, example: SchoolStatus.ACTIVE })
+  @IsEnum(SchoolStatus)
+  status!: SchoolStatus;
+
+  @ApiPropertyOptional({
+    description: 'Obrigatório se SUSPENDED ou REJECTED (mín. 5 caracteres)',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  planId?: string;
+
+  @ApiPropertyOptional({ example: 365 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  durationDays?: number;
+
+  @ApiPropertyOptional({ example: '2027-08-11T23:59:59.000Z' })
+  @IsOptional()
+  @IsDateString()
+  endsAt?: string;
 }

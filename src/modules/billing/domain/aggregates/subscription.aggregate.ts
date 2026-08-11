@@ -139,6 +139,44 @@ export class Subscription extends AggregateRoot {
     return subscription;
   }
 
+  /** Cortesia de admin: ACTIVE sem pagamento, autoRenew=false. */
+  static createAdminGrant(params: {
+    id: string;
+    schoolId: string;
+    planId: string;
+    startDate: Date;
+    endDate: Date;
+  }): Subscription {
+    if (
+      !(params.startDate instanceof Date) ||
+      Number.isNaN(params.startDate.getTime())
+    ) {
+      throw new InvariantViolationException('startDate inválida');
+    }
+    if (
+      !(params.endDate instanceof Date) ||
+      Number.isNaN(params.endDate.getTime()) ||
+      params.endDate <= params.startDate
+    ) {
+      throw new InvariantViolationException('endDate deve ser posterior a startDate');
+    }
+    const subscription = new Subscription(
+      params.id,
+      params.schoolId,
+      params.planId,
+      SubscriptionStatus.ACTIVE,
+      params.startDate,
+      params.endDate,
+      false,
+      false,
+      null,
+      null,
+      null,
+    );
+    subscription.addDomainEvent(new SubscriptionActivatedEvent(params.id));
+    return subscription;
+  }
+
   get id(): string {
     return this._id;
   }

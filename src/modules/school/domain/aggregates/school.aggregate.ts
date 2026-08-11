@@ -644,6 +644,28 @@ export class School extends AggregateRoot {
     this.touch();
   }
 
+  applyAdminStatus(params: {
+    status: SchoolStatus;
+    actorUserId: string;
+    reason?: string | null;
+  }): void {
+    this._status = params.status;
+    if (
+      params.status === SchoolStatus.SUSPENDED ||
+      params.status === SchoolStatus.REJECTED
+    ) {
+      this._rejectionReason = params.reason?.trim() || null;
+    } else if (params.status === SchoolStatus.ACTIVE) {
+      this._rejectionReason = null;
+    }
+    this._reviewedAt = new Date();
+    this._reviewedByUserId = params.actorUserId;
+    this.touch();
+    if (params.status === SchoolStatus.ACTIVE) {
+      this.addDomainEvent(new SchoolPublishedEvent(this._id));
+    }
+  }
+
   hasMinimumProfile(): boolean {
     return Boolean(this._name && this._slug && this._description);
   }

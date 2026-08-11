@@ -45,6 +45,7 @@ describe('Admin users', () => {
         users as never,
         hasher as never,
         prisma as never,
+        { log: jest.fn() } as never,
       );
     });
 
@@ -118,7 +119,11 @@ describe('Admin users', () => {
           }),
         },
       };
-      const useCase = new PatchAdminUserUseCase(users as never, prisma as never);
+      const useCase = new PatchAdminUserUseCase(
+        users as never,
+        prisma as never,
+        { log: jest.fn() } as never,
+      );
       const result = (await useCase.execute({
         actorUserId: actorId,
         userId: target.id,
@@ -132,6 +137,7 @@ describe('Admin users', () => {
       const useCase = new PatchAdminUserUseCase(
         { findById: jest.fn(), save: jest.fn() } as never,
         {} as never,
+        { log: jest.fn() } as never,
       );
       await expect(
         useCase.execute({

@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UseCase } from '../../../../shared/application/use-case';
+import { AUDIT_LOGGER } from '../../../../shared/application/ports/audit-logger.port';
+import type { AuditLogger } from '../../../../shared/application/ports/audit-logger.port';
 import {
   BusinessRuleViolationException,
   ConflictDomainException,
@@ -22,6 +24,7 @@ const ALLOWED_ROLES: ReadonlySet<UserRole> = new Set([
 ]);
 
 export type CreateAdminUserInput = {
+  actorUserId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -38,6 +41,7 @@ export class CreateAdminUserUseCase
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(PASSWORD_HASHER) private readonly passwordHasher: PasswordHasher,
     private readonly prisma: PrismaService,
+    @Inject(AUDIT_LOGGER) private readonly audit: AuditLogger,
   ) {}
 
   async execute(input: CreateAdminUserInput) {
@@ -73,6 +77,15 @@ export class CreateAdminUserUseCase
       where: { id: saved.id },
       include: { platformRoles: { select: { role: true } } },
     });
-    return presentAdminUser(row);
+    const presented = presentAdminUser(row);
+    await this.audit.log({
+      actorUserId: input.actorUserId ?? null,
+      action: 'USER_CREATED',
+      entity: 'USER',
+      entityId: saved.id,
+      newData: { email: presented.email, roles: presented.roles },
+      metadata: { entityLabel: presented.name },
+    });
+    return presented;
   }
 }

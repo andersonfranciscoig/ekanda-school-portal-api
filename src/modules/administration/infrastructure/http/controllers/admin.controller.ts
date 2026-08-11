@@ -19,6 +19,8 @@ import { Roles } from '../../../../identity/infrastructure/auth/roles.decorator'
 import { RolesGuard } from '../../../../identity/infrastructure/auth/roles.guard';
 import { ApproveSchoolUseCase } from '../../../application/use-cases/approve-school.use-case';
 import { CancelAdminSubscriptionUseCase } from '../../../application/use-cases/cancel-admin-subscription.use-case';
+import { ChangeSchoolStatusUseCase } from '../../../application/use-cases/change-school-status.use-case';
+import { ListAdminActivityUseCase } from '../../../application/use-cases/list-admin-activity.use-case';
 import { CreateAdminUserUseCase } from '../../../application/use-cases/create-admin-user.use-case';
 import { CreateOrUpdatePlanUseCase } from '../../../application/use-cases/create-or-update-plan.use-case';
 import { PatchAdminUserUseCase } from '../../../application/use-cases/patch-admin-user.use-case';
@@ -29,11 +31,14 @@ import { ViewPlansUseCase } from '../../../application/use-cases/view-plans.use-
 import { ViewSchoolsUseCase } from '../../../application/use-cases/view-schools.use-case';
 import { ViewSubscriptionsUseCase } from '../../../application/use-cases/view-subscriptions.use-case';
 import { ViewUsersUseCase } from '../../../application/use-cases/view-users.use-case';
+import { SchoolHttpQueryService } from '../../../../school/infrastructure/http/school-http-query.service';
+import { AdminActivityQueryDto } from '../dto/admin-activity.http-dto';
 import { AdminApplicationsQueryDto } from '../dto/admin-applications.http-dto';
 import { AdminPaymentsQueryDto } from '../dto/admin-payments.http-dto';
 import { PatchAdminPlanBodyDto } from '../dto/admin-plans.http-dto';
 import {
   AdminSchoolsQueryDto,
+  PatchSchoolStatusBodyDto,
   RejectSchoolBodyDto,
 } from '../dto/admin-schools.http-dto';
 import { AdminSubscriptionsQueryDto } from '../dto/admin-subscriptions.http-dto';
@@ -62,6 +67,9 @@ export class AdminController {
     private readonly viewSubscriptions: ViewSubscriptionsUseCase,
     private readonly cancelSubscription: CancelAdminSubscriptionUseCase,
     private readonly viewApplications: ViewApplicationsUseCase,
+    private readonly changeSchoolStatus: ChangeSchoolStatusUseCase,
+    private readonly listActivity: ListAdminActivityUseCase,
+    private readonly schoolQueries: SchoolHttpQueryService,
   ) {}
 
   @Get('schools')
@@ -79,6 +87,18 @@ export class AdminController {
         pageSize: query.pageSize,
       }),
       'Schools listed',
+    );
+  }
+
+  @Get('schools/by-slug/:slug')
+  @ApiOperation({
+    summary:
+      'Pré-visualizar perfil completo do colégio por slug (qualquer estado)',
+  })
+  async getSchoolBySlug(@Param('slug') slug: string) {
+    return ok(
+      await this.schoolQueries.findBySlugForAdmin(slug),
+      'School preview fetched',
     );
   }
 
@@ -131,6 +151,36 @@ export class AdminController {
     );
   }
 
+  @Patch('schools/:id/status')
+  @ApiOperation({
+    summary:
+      'Alterar estado do colégio. ACTIVE exige planId + durationDays ou endsAt (subscrição cortesia).',
+  })
+  async patchSchoolStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: PatchSchoolStatusBodyDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return ok(
+      await this.changeSchoolStatus.execute({
+        schoolId: id,
+        actorUserId: user.id,
+        status: body.status,
+        reason: body.reason,
+        planId: body.planId,
+        durationDays: body.durationDays,
+        endsAt: body.endsAt,
+      }),
+      'School status updated',
+    );
+  }
+
+  @Get('activity')
+  @ApiOperation({ summary: 'Feed de actividade da plataforma' })
+  async listAdminActivity(@Query() query: AdminActivityQueryDto) {
+    return ok(await this.listActivity.execute(query), 'Activity listed');
+  }
+
   @Get('users')
   @ApiOperation({ summary: 'Listar utilizadores da plataforma' })
   async listUsers(@Query() query: AdminUsersQueryDto) {
@@ -147,8 +197,17 @@ export class AdminController {
   @ApiOperation({
     summary: 'Criar EKANDA_ADMIN ou SCHOOL_ADMIN (sem iniciar sessão)',
   })
-  async createUser(@Body() body: CreateAdminUserBodyDto) {
-    return ok(await this.createAdminUser.execute(body), 'User created');
+  async createUser(
+    @Body() body: CreateAdminUserBodyDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return ok(
+      await this.createAdminUser.execute({
+        ...body,
+        actorUserId: user.id,
+      }),
+      'User created',
+    );
   }
 
   @Patch('users/:id')

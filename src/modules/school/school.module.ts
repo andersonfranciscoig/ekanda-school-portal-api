@@ -119,6 +119,7 @@ const schoolUseCases = [
     SCHOOL_GALLERY_REPOSITORY,
     SCHOOL_ONBOARDING_QUERY,
     SchoolAccessAuthorizer,
+    SchoolHttpQueryService,
     ...schoolUseCases,
   ],
 })

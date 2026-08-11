@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
 import { SchoolEntitlementService } from '../../../billing/application/services/school-entitlement.service';
+import { SchoolNotFoundException } from '../../domain/exceptions/school.exceptions';
 import { buildSchoolOnboardingProgress } from '../../application/school-onboarding.progress';
 import {
   EducationLevelCode,
@@ -222,6 +223,42 @@ export class SchoolHttpQueryService {
     if (!visible) throw new NotFoundException('Colégio não encontrado');
 
     return this.presentSchoolDetail(school);
+  }
+
+  async findBySlugForAdmin(slug: string) {
+    const school = await this.prisma.school.findFirst({
+      where: { slug: slug.toLowerCase() },
+      include: {
+        ...schoolPublicInclude,
+        memberships: {
+          where: { status: MembershipStatus.ACTIVE },
+          select: {
+            id: true,
+            role: true,
+            status: true,
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!school) throw new SchoolNotFoundException();
+
+    const subscription = await this.entitlements.getDashboardSubscription(
+      school.id,
+    );
+
+    return {
+      ...this.presentSchoolDetail(school),
+      memberships: school.memberships,
+      subscription,
+    };
   }
 
   async findOneForMember(schoolId: string, userId: string) {
