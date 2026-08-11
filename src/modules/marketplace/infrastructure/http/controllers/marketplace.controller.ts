@@ -13,9 +13,11 @@ import { CurrentUser } from '../../../../../shared/infrastructure/http/current-u
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { AddSchoolToFavoritesUseCase } from '../../../application/use-cases/add-school-to-favorites.use-case';
+import { CompareSchoolsUseCase } from '../../../application/use-cases/compare-schools.use-case';
 import { ListMyFavoriteSchoolsUseCase } from '../../../application/use-cases/list-my-favorite-schools.use-case';
 import { RemoveSchoolFromFavoritesUseCase } from '../../../application/use-cases/remove-school-from-favorites.use-case';
 import { SearchSchoolsUseCase } from '../../../application/use-cases/search-schools.use-case';
+import { MarketplaceCompareQueryDto } from '../dto/marketplace-compare.query.dto';
 import { MarketplaceSearchQueryDto } from '../dto/marketplace-search.query.dto';
 import { Query } from '@nestjs/common';
 
@@ -24,6 +26,7 @@ import { Query } from '@nestjs/common';
 export class MarketplaceController {
   constructor(
     private readonly searchSchools: SearchSchoolsUseCase,
+    private readonly compareSchools: CompareSchoolsUseCase,
     private readonly addFavorite: AddSchoolToFavoritesUseCase,
     private readonly removeFavorite: RemoveSchoolFromFavoritesUseCase,
     private readonly listFavorites: ListMyFavoriteSchoolsUseCase,
@@ -37,6 +40,15 @@ export class MarketplaceController {
   async search(@Query() query: MarketplaceSearchQueryDto) {
     const result = await this.searchSchools.execute(query);
     return ok(result, 'ok');
+  }
+
+  @Get('compare')
+  @ApiOperation({
+    summary: 'Comparar 2 ou 3 colégios públicos lado a lado',
+  })
+  async compare(@Query() query: MarketplaceCompareQueryDto) {
+    const result = await this.compareSchools.execute({ ids: query.ids });
+    return ok(result, 'Schools compared');
   }
 
   @Get('favorites')

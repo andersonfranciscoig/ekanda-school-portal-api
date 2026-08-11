@@ -104,6 +104,44 @@ export class PrismaMarketplaceSearchQuery {
     return rows.map((row) => this.toRow(row));
   }
 
+  async findVisibleByIds(
+    ids: string[],
+    now = new Date(),
+  ): Promise<MarketplaceSchoolRow[]> {
+    if (!ids.length) return [];
+    const rows = await this.prisma.school.findMany({
+      where: {
+        id: { in: ids },
+        status: SchoolStatus.ACTIVE,
+        subscriptions: {
+          some: {
+            status: SubscriptionStatus.ACTIVE,
+            AND: [
+              { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+              { OR: [{ endDate: null }, { endDate: { gt: now } }] },
+            ],
+          },
+        },
+      },
+      include: {
+        location: true,
+        classes: { where: { isActive: true } },
+        services: true,
+        price: { include: { levels: true } },
+        gallery: {
+          where: { kind: GalleryKind.PHOTO },
+          orderBy: { order: 'asc' },
+          take: 1,
+        },
+        reviews: {
+          where: { isPublished: true },
+          select: { rating: true },
+        },
+      },
+    });
+    return rows.map((row) => this.toRow(row));
+  }
+
   private buildWhere(
     filters: MarketplaceSearchFilters,
     now: Date,

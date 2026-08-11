@@ -4,6 +4,10 @@ import { MarketplaceModule } from '../marketplace/marketplace.module';
 import { SchoolModule } from '../school/school.module';
 import { ConciergeSessionStore } from './application/services/concierge-session.store';
 import { CreateConciergeSessionUseCase } from './application/use-cases/create-concierge-session.use-case';
+import {
+  DeleteAllConciergeSessionsUseCase,
+  DeleteConciergeSessionUseCase,
+} from './application/use-cases/delete-concierge-session.use-case';
 import { GetConciergeSessionUseCase } from './application/use-cases/get-concierge-session.use-case';
 import { ListConciergeSessionsUseCase } from './application/use-cases/list-concierge-sessions.use-case';
 import {
@@ -30,6 +34,8 @@ import { OllamaConciergeClient } from './infrastructure/ollama/ollama-concierge.
     CreateConciergeSessionUseCase,
     ListConciergeSessionsUseCase,
     GetConciergeSessionUseCase,
+    DeleteConciergeSessionUseCase,
+    DeleteAllConciergeSessionsUseCase,
     ProcessConciergeTurnUseCase,
     SearchConciergeSessionUseCase,
     PatchConciergeNeedsUseCase,

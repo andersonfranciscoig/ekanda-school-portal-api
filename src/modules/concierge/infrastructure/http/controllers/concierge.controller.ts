@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -23,6 +24,10 @@ import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.typ
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../../../identity/infrastructure/auth/optional-jwt-auth.guard';
 import { CreateConciergeSessionUseCase } from '../../../application/use-cases/create-concierge-session.use-case';
+import {
+  DeleteAllConciergeSessionsUseCase,
+  DeleteConciergeSessionUseCase,
+} from '../../../application/use-cases/delete-concierge-session.use-case';
 import { GetConciergeSessionUseCase } from '../../../application/use-cases/get-concierge-session.use-case';
 import { ListConciergeSessionsUseCase } from '../../../application/use-cases/list-concierge-sessions.use-case';
 import {
@@ -63,6 +68,8 @@ export class ConciergeController {
     private readonly createSession: CreateConciergeSessionUseCase,
     private readonly listSessions: ListConciergeSessionsUseCase,
     private readonly getSession: GetConciergeSessionUseCase,
+    private readonly deleteSession: DeleteConciergeSessionUseCase,
+    private readonly deleteAllSessions: DeleteAllConciergeSessionsUseCase,
     private readonly processTurn: ProcessConciergeTurnUseCase,
     private readonly searchSession: SearchConciergeSessionUseCase,
     private readonly patchNeeds: PatchConciergeNeedsUseCase,
@@ -101,6 +108,34 @@ export class ConciergeController {
       pageSize: query.pageSize,
     });
     return ok(result, 'Concierge sessions listed');
+  }
+
+  @Delete('sessions')
+  @ApiOperation({ summary: 'Apagar todo o histórico de conversas do utilizador/dispositivo' })
+  async removeAll(
+    @CurrentUser() user?: AuthUser,
+    @Headers('x-device-id') deviceId?: string,
+  ) {
+    const result = await this.deleteAllSessions.execute({
+      userId: user?.id,
+      deviceId: deviceId ?? null,
+    });
+    return ok(result, 'Concierge history deleted');
+  }
+
+  @Delete('sessions/:id')
+  @ApiOperation({ summary: 'Apagar uma conversa Concierge' })
+  async removeById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user?: AuthUser,
+    @Headers('x-device-id') deviceId?: string,
+  ) {
+    const result = await this.deleteSession.execute({
+      sessionId: id,
+      userId: user?.id,
+      deviceId: deviceId ?? null,
+    });
+    return ok(result, 'Concierge session deleted');
   }
 
   @Get('sessions/:id')

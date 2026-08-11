@@ -102,6 +102,36 @@ export class ConciergeSessionStore {
     return { rows, total };
   }
 
+  async deleteSession(
+    sessionId: string,
+    actor: { userId?: string | null; deviceId?: string | null },
+  ) {
+    const session = await this.getSessionOrThrow(sessionId);
+    this.assertCanAccess(session, actor);
+    await this.prisma.conciergeSession.delete({ where: { id: session.id } });
+    return { id: session.id };
+  }
+
+  async deleteAllSessions(actor: {
+    userId?: string | null;
+    deviceId?: string | null;
+  }) {
+    const or: Prisma.ConciergeSessionWhereInput[] = [];
+    if (actor.userId) or.push({ userId: actor.userId });
+    if (actor.deviceId) {
+      or.push({
+        deviceId: actor.deviceId,
+        ...(actor.userId ? { userId: null } : {}),
+      });
+    }
+    if (!or.length) return { deletedCount: 0 };
+
+    const result = await this.prisma.conciergeSession.deleteMany({
+      where: { OR: or },
+    });
+    return { deletedCount: result.count };
+  }
+
   async updateNeeds(
     sessionId: string,
     needs: NeedsProfile,
