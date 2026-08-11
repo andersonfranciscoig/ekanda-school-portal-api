@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ok } from '../../../../../shared/application/api-response';
@@ -6,6 +6,7 @@ import { CurrentUser } from '../../../../../shared/infrastructure/http/current-u
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CreateApplicationUseCase } from '../../../application/use-cases/create-application.use-case';
+import { ListApplicationsUseCase } from '../../../application/use-cases/list-applications.use-case';
 
 class CreateApplicationBodyDto {
   @ApiProperty({ format: 'uuid' })
@@ -35,7 +36,25 @@ class CreateApplicationBodyDto {
 @ApiTags('applications')
 @Controller('applications')
 export class ApplicationsController {
-  constructor(private readonly createApplication: CreateApplicationUseCase) {}
+  constructor(
+    private readonly createApplication: CreateApplicationUseCase,
+    private readonly listApplications: ListApplicationsUseCase,
+  ) {}
+
+  @Get('mine')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Candidaturas do encarregado autenticado' })
+  async listMine(@CurrentUser() user: AuthUser) {
+    return ok(
+      await this.listApplications.execute({
+        guardianId: user.id,
+        page: 1,
+        pageSize: 50,
+      }),
+      'Applications listed',
+    );
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)

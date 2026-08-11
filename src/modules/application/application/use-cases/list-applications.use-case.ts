@@ -11,6 +11,7 @@ import {
 
 export type ListApplicationsInput = {
   schoolId?: string;
+  guardianId?: string;
   status?: ApplicationStatus;
   q?: string;
   page?: number;
@@ -101,6 +102,7 @@ export class ListApplicationsUseCase
 
     return {
       ...(input.schoolId ? { schoolId: input.schoolId } : {}),
+      ...(input.guardianId ? { guardianId: input.guardianId } : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(or.length ? { OR: or } : {}),
     };
