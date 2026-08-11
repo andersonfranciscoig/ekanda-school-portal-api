@@ -4,7 +4,7 @@ import { PrismaService } from '../../../../shared/infrastructure/persistence/pri
 import {
   presentStudent,
   type StudentDto,
-} from './create-or-update-student.use-case';
+} from '../services/student.presenter';
 
 @Injectable()
 export class ListMyStudentsUseCase

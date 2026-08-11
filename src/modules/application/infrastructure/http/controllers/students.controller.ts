@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -72,17 +81,21 @@ export class StudentsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar ou actualizar um filho (id ausente = criar)' })
-  async upsert(@Body() body: UpsertStudentBodyDto, @CurrentUser() user: AuthUser) {
-    return ok(
-      await this.upsertStudent.execute({
-        actorUserId: user.id,
-        id: body.id,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        birthDate: body.birthDate,
-        gender: body.gender,
-      }),
-      body.id ? 'Student updated' : 'Student created',
-    );
+  async upsert(
+    @Body() body: UpsertStudentBodyDto,
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const created = !body.id;
+    const result = await this.upsertStudent.execute({
+      actorUserId: user.id,
+      id: body.id,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      birthDate: body.birthDate,
+      gender: body.gender,
+    });
+    if (created) res.status(HttpStatus.CREATED);
+    return ok(result, created ? 'Student created' : 'Student updated');
   }
 }

@@ -1,12 +1,30 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ok } from '../../../../../shared/application/api-response';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { CreateApplicationUseCase } from '../../../application/use-cases/create-application.use-case';
 import { ListApplicationsUseCase } from '../../../application/use-cases/list-applications.use-case';
+
+class ListMyApplicationsQueryDto {
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 50, maximum: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
 
 class CreateApplicationBodyDto {
   @ApiProperty({ format: 'uuid' })
@@ -45,12 +63,15 @@ export class ApplicationsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Candidaturas do encarregado autenticado' })
-  async listMine(@CurrentUser() user: AuthUser) {
+  async listMine(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListMyApplicationsQueryDto,
+  ) {
     return ok(
       await this.listApplications.execute({
         guardianId: user.id,
-        page: 1,
-        pageSize: 50,
+        page: query.page ?? 1,
+        pageSize: query.pageSize ?? 50,
       }),
       'Applications listed',
     );
