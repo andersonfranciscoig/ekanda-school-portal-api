@@ -174,7 +174,7 @@ async function main() {
     name: 'Presença',
     description:
       'Plano MVP para perfil público, marketplace, candidaturas e gestão básica do colégio na Ekanda.',
-    price: 1,
+    price: 15000,
     currency: 'AOA',
     billingPeriod: BillingPeriod.MONTHLY,
     isActive: true,
@@ -187,8 +187,8 @@ async function main() {
     name: 'Gestão',
     description:
       'Plano de subscrição para gestão escolar completa: alunos, turmas, notas, propinas e comunicação. Lançamento gradual com fila de testes.',
-    price: 0,
-    currency: 'Kz',
+    price: 50000,
+    currency: 'AOA',
     billingPeriod: BillingPeriod.MONTHLY,
     isActive: false,
     isPublic: false,

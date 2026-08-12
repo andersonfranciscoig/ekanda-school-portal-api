@@ -2,6 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UseCase } from '../../../../shared/application/use-case';
 import { SchoolAccessAuthorizer } from '../../../school/application/services/school-access.authorizer';
+import {
+  SCHOOL_REPOSITORY,
+  SchoolRepository,
+} from '../../../school/domain/repositories/school.repository';
 import { Payment } from '../../domain/aggregates/payment.aggregate';
 import { Subscription } from '../../domain/aggregates/subscription.aggregate';
 import { PlanCode } from '../../domain/entities/plan.entity';
@@ -47,6 +51,8 @@ export type InitiatePaymentCheckoutInput = {
   action?: PaymentCheckoutAction;
 };
 
+const FINDORA_TEST_PHONE = '923000000';
+
 @Injectable()
 export class InitiatePaymentCheckoutUseCase
   implements UseCase<InitiatePaymentCheckoutInput, unknown>
@@ -60,6 +66,8 @@ export class InitiatePaymentCheckoutUseCase
     private readonly subscriptions: SubscriptionRepository,
     @Inject(PAYMENT_REPOSITORY)
     private readonly payments: PaymentRepository,
+    @Inject(SCHOOL_REPOSITORY)
+    private readonly schools: SchoolRepository,
     @Inject(PAYMENT_GATEWAY)
     private readonly gateway: PaymentGateway,
     private readonly confirmPayment: ConfirmSubscriptionPaymentService,
@@ -69,9 +77,18 @@ export class InitiatePaymentCheckoutUseCase
     await this.access.assertCanManageSchool(input.actorUserId, input.schoolId);
 
     const action = input.action ?? 'subscribe';
+    const isFindoraTest =
+      this.config.get<string>('PAYMENT_GATEWAY', 'simulated') === 'findora_test';
+
+    let expressPhone: string | null = null;
     if (input.method === 'MULTICAIXA_EXPRESS') {
-      if (!input.expressPhone || !isValidExpressPhone(input.expressPhone)) {
-        throw new InvalidExpressPhoneException();
+      if (isFindoraTest) {
+        expressPhone = FINDORA_TEST_PHONE;
+      } else {
+        if (!input.expressPhone || !isValidExpressPhone(input.expressPhone)) {
+          throw new InvalidExpressPhoneException();
+        }
+        expressPhone = normalizeExpressPhone(input.expressPhone);
       }
     }
 
@@ -86,11 +103,10 @@ export class InitiatePaymentCheckoutUseCase
       throw new InvalidPaymentAmountException();
     }
 
+    const school = await this.schools.findById(input.schoolId);
+    const schoolName = school?.name?.trim() || 'Colégio';
+
     const subscription = await this.resolveSubscription(input, action, plan.id);
-    const expressPhone =
-      input.method === 'MULTICAIXA_EXPRESS'
-        ? normalizeExpressPhone(input.expressPhone!)
-        : null;
 
     const payment = Payment.create({
       id: crypto.randomUUID(),
@@ -104,6 +120,10 @@ export class InitiatePaymentCheckoutUseCase
       metadata: {
         action,
         channel: input.method === 'MULTICAIXA_EXPRESS' ? 'express' : 'bank',
+        schoolName,
+        ...(isFindoraTest && input.expressPhone
+          ? { requestedExpressPhone: input.expressPhone }
+          : {}),
       },
     });
 
@@ -117,7 +137,7 @@ export class InitiatePaymentCheckoutUseCase
       paymentId: payment.id,
       amount: plan.price.amount,
       currency: plan.price.currency,
-      description: `Subscrição do plano ${plan.name}`,
+      description: `Subscrição do plano ${plan.name} do ${schoolName}`,
       method: input.method,
       expressPhone: expressPhone ?? undefined,
       successUrl: `${frontendUrl}/pagamentos/sucesso?paymentId=${payment.id}`,

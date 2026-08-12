@@ -41,13 +41,19 @@ type FindoraPaymentIntentResponse = {
 
 @Injectable()
 export class FindoraPaymentGateway implements PaymentGateway {
-  readonly providerName = 'findora';
+  readonly providerName: string;
   private readonly logger = new Logger(FindoraPaymentGateway.name);
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly webhookSecret: string;
+  private readonly testMode: boolean;
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    options: { testMode?: boolean } = {},
+  ) {
+    this.testMode = options.testMode === true;
+    this.providerName = this.testMode ? 'findora_test' : 'findora';
     this.baseUrl = config.getOrThrow<string>('FINDORA_BASE_URL');
     this.apiKey = config.getOrThrow<string>('FINDORA_API_KEY');
     this.webhookSecret = config.getOrThrow<string>('FINDORA_WEBHOOK_SECRET');
@@ -97,15 +103,13 @@ export class FindoraPaymentGateway implements PaymentGateway {
 
     let intent: FindoraPaymentIntentResponse | undefined;
     if (input.method === 'MULTICAIXA_EXPRESS') {
-      if (!input.expressPhone) {
-        throw new Error('expressPhone is required for Multicaixa Express');
-      }
+      const phone = this.resolveExpressPhone(input.expressPhone);
       intent = await this.request<FindoraPaymentIntentResponse>(
         'POST',
         '/payment-intents/multicaixa-express',
         {
           cstk: checkoutSessionId,
-          phone: Number(input.expressPhone),
+          phone: Number(phone),
         },
       );
     } else {
@@ -126,6 +130,17 @@ export class FindoraPaymentGateway implements PaymentGateway {
       bankAmount: intent?.amount ?? input.amount,
       expressSent: input.method === 'MULTICAIXA_EXPRESS',
     };
+  }
+
+  private resolveExpressPhone(phone: string | undefined): string {
+    // Sandbox Findora: força número de teste aceite, independentemente do pedido.
+    if (this.testMode) {
+      return '923000000';
+    }
+    if (!phone?.trim()) {
+      throw new Error('expressPhone is required for Multicaixa Express');
+    }
+    return phone.trim();
   }
 
   private extractInvoiceKeyId(response: FindoraInvoiceResponse): string | null {
