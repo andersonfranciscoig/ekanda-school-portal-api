@@ -18,6 +18,7 @@ export type LoginUserInput = {
 
 export type LoginUserOutput = {
   accessToken: string;
+  refreshToken: string;
   user: ReturnType<User['toPublic']>;
 };
 
@@ -49,12 +50,12 @@ export class LoginUserUseCase
       throw new UnauthorizedDomainException('invalid credentials');
     }
 
-    const accessToken = await this.tokenIssuer.issue({
+    const { accessToken, refreshToken } = await this.tokenIssuer.issuePair({
       sub: user.id,
       email: user.email.value,
       role: user.role,
     });
 
-    return { accessToken, user: user.toPublic() };
+    return { accessToken, refreshToken, user: user.toPublic() };
   }
 }

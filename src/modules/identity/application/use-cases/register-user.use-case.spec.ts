@@ -29,6 +29,8 @@ describe('RegisterUserUseCase', () => {
     };
     tokens = {
       issue: jest.fn().mockResolvedValue('token'),
+      issuePair: jest.fn().mockResolvedValue({ accessToken: 'at', refreshToken: 'rt' }),
+      verifyRefresh: jest.fn().mockResolvedValue({ sub: '1', email: 'a@b.c', role: 'GUARDIAN' }),
     };
     useCase = new RegisterUserUseCase(users, hasher, tokens);
   });

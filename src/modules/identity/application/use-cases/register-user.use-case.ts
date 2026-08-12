@@ -38,6 +38,7 @@ export type RegisterUserInput = {
 
 export type RegisterUserOutput = {
   accessToken: string;
+  refreshToken: string;
   user: ReturnType<User['toPublic']>;
 };
 
@@ -79,13 +80,13 @@ export class RegisterUserUseCase
     });
 
     const saved = await this.users.save(user);
-    const accessToken = await this.tokenIssuer.issue({
+    const { accessToken, refreshToken } = await this.tokenIssuer.issuePair({
       sub: saved.id,
       email: saved.email.value,
       role: saved.role,
     });
 
-    return { accessToken, user: saved.toPublic() };
+    return { accessToken, refreshToken, user: saved.toPublic() };
   }
 
   private assertCanAssignRole(

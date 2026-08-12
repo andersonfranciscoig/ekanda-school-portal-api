@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { DomainExceptionFilter } from './shared/infrastructure/http/domain-exception.filter';
 import { ResponseTransformInterceptor } from './shared/infrastructure/http/response-transform.interceptor';
@@ -10,8 +11,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  app.use(cookieParser());
+
+  const corsOrigins = config
+    .getOrThrow<string>('CORS_ORIGINS')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: true,
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
