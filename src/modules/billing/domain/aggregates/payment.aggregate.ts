@@ -224,4 +224,8 @@ export class Payment extends AggregateRoot {
   isPaid(): boolean {
     return this._status === PaymentStatus.PAID;
   }
+
+  attachGatewayMetadata(partial: Record<string, unknown>): void {
+    this._metadata = { ...(this._metadata ?? {}), ...partial };
+  }
 }

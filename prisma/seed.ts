@@ -174,8 +174,8 @@ async function main() {
     name: 'Presença',
     description:
       'Plano MVP para perfil público, marketplace, candidaturas e gestão básica do colégio na Ekanda.',
-    price: 0,
-    currency: 'Kz',
+    price: 1,
+    currency: 'AOA',
     billingPeriod: BillingPeriod.MONTHLY,
     isActive: true,
     isPublic: true,

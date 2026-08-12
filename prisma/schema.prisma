@@ -67,6 +67,7 @@ enum PaymentStatus {
 
 enum PaymentMethod {
   MULTICAIXA_EXPRESS
+  BANK_REFERENCE
 }
 
 enum ApplicationStatus {

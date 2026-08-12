@@ -35,5 +35,7 @@ export interface PaymentRepository {
   findById(id: string): Promise<Payment | null>;
   findByExternalTransactionId(externalId: string): Promise<Payment | null>;
   findByExternalReference(reference: string): Promise<Payment | null>;
+  findByGatewayCheckoutSessionId(sessionId: string): Promise<Payment | null>;
+  findByGatewayInvoiceId(invoiceId: string): Promise<Payment | null>;
   findManyBySchoolId(schoolId: string): Promise<Payment[]>;
 }

@@ -62,6 +62,15 @@ export class InvalidExpressPhoneException extends BusinessRuleViolationException
   }
 }
 
+export class InvalidPaymentAmountException extends BusinessRuleViolationException {
+  constructor(
+    message = 'O valor do plano deve ser superior a zero para iniciar pagamento',
+  ) {
+    super(message);
+    this.name = 'InvalidPaymentAmountException';
+  }
+}
+
 export class SchoolSubscriptionExpiredException extends ForbiddenDomainException {
   readonly code = 'SCHOOL_SUBSCRIPTION_EXPIRED';
 

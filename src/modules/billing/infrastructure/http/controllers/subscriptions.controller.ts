@@ -20,9 +20,9 @@ import { ListSchoolSubscriptionsUseCase } from '../../../application/use-cases/l
 import { RenewSubscriptionUseCase } from '../../../application/use-cases/renew-subscription.use-case';
 import { UpgradeSubscriptionUseCase } from '../../../application/use-cases/upgrade-subscription.use-case';
 import {
-  ExpressPhoneBodyDto,
   SchoolScopedQueryDto,
   SubscribeBodyDto,
+  SubscriptionPaymentBodyDto,
   UpgradeSubscriptionBodyDto,
 } from '../dto/billing.http-dto';
 
@@ -73,7 +73,7 @@ export class SubscriptionsController {
   @Post()
   @ApiOperation({
     summary:
-      'Subscrever plano pago via Multicaixa Express (confirmação automática até existir gateway)',
+      'Subscrever plano pago (preferir POST /payments/checkout)',
   })
   async subscribe(
     @Body() body: SubscribeBodyDto,
@@ -84,26 +84,28 @@ export class SubscriptionsController {
         actorUserId: user.id,
         schoolId: body.schoolId,
         planId: body.planId,
+        method: body.method ?? 'MULTICAIXA_EXPRESS',
         expressPhone: body.expressPhone,
       }),
-      'Subscription activated',
+      'Subscription checkout initiated',
     );
   }
 
   @Post(':id/renew')
-  @ApiOperation({ summary: 'Renovar subscrição (Express)' })
+  @ApiOperation({ summary: 'Renovar subscrição' })
   async renew(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: ExpressPhoneBodyDto,
+    @Body() body: SubscriptionPaymentBodyDto,
     @CurrentUser() user: AuthUser,
   ) {
     return ok(
       await this.renewSubscription.execute({
         actorUserId: user.id,
         subscriptionId: id,
+        method: body.method ?? 'MULTICAIXA_EXPRESS',
         expressPhone: body.expressPhone,
       }),
-      'Subscription renewed',
+      'Subscription renewal initiated',
     );
   }
 
@@ -123,7 +125,7 @@ export class SubscriptionsController {
   }
 
   @Post(':id/upgrade')
-  @ApiOperation({ summary: 'Upgrade de plano (imediato após pagamento Express)' })
+  @ApiOperation({ summary: 'Upgrade de plano' })
   async upgrade(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpgradeSubscriptionBodyDto,
@@ -134,9 +136,10 @@ export class SubscriptionsController {
         actorUserId: user.id,
         subscriptionId: id,
         planId: body.planId,
+        method: body.method ?? 'MULTICAIXA_EXPRESS',
         expressPhone: body.expressPhone,
       }),
-      'Subscription upgraded',
+      'Subscription upgrade initiated',
     );
   }
 }

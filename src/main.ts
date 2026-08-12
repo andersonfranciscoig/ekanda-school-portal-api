@@ -8,7 +8,7 @@ import { DomainExceptionFilter } from './shared/infrastructure/http/domain-excep
 import { ResponseTransformInterceptor } from './shared/infrastructure/http/response-transform.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   app.use(cookieParser());

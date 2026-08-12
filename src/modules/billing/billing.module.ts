@@ -21,6 +21,8 @@ import { ListSchoolPaymentsUseCase } from './application/use-cases/list-school-p
 import { ListSchoolSubscriptionsUseCase } from './application/use-cases/list-school-subscriptions.use-case';
 import { ListWalletTransactionsUseCase } from './application/use-cases/list-wallet-transactions.use-case';
 import { ProcessPaymentUseCase } from './application/use-cases/process-payment.use-case';
+import { ProcessFindoraWebhookUseCase } from './application/use-cases/process-findora-webhook.use-case';
+import { InitiatePaymentCheckoutUseCase } from './application/use-cases/initiate-payment-checkout.use-case';
 import { RenewSubscriptionUseCase } from './application/use-cases/renew-subscription.use-case';
 import { StartPaymentUseCase } from './application/use-cases/start-payment.use-case';
 import { UpgradeSubscriptionUseCase } from './application/use-cases/upgrade-subscription.use-case';
@@ -38,6 +40,7 @@ import { ExpireSubscriptionsJob } from './infrastructure/jobs/expire-subscriptio
 import { PrismaPaymentRepository } from './infrastructure/persistence/prisma/prisma-payment.repository';
 import { PrismaPlanRepository } from './infrastructure/persistence/prisma/prisma-plan.repository';
 import { PrismaSubscriptionRepository } from './infrastructure/persistence/prisma/prisma-subscription.repository';
+import { paymentGatewayProvider } from './infrastructure/gateway/payment-gateway.provider';
 
 @Module({
   imports: [forwardRef(() => SchoolModule), IdentityModule],
@@ -54,6 +57,7 @@ import { PrismaSubscriptionRepository } from './infrastructure/persistence/prism
       useClass: PrismaSubscriptionRepository,
     },
     { provide: PAYMENT_REPOSITORY, useClass: PrismaPaymentRepository },
+    paymentGatewayProvider,
     WalletLedgerService,
     ConfirmSubscriptionPaymentService,
     SchoolEntitlementService,
@@ -66,7 +70,9 @@ import { PrismaSubscriptionRepository } from './infrastructure/persistence/prism
     GetCurrentSubscriptionUseCase,
     ListSchoolSubscriptionsUseCase,
     StartPaymentUseCase,
+    InitiatePaymentCheckoutUseCase,
     ProcessPaymentUseCase,
+    ProcessFindoraWebhookUseCase,
     ConfirmPaymentUseCase,
     FailPaymentUseCase,
     CancelPaymentUseCase,

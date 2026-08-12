@@ -170,7 +170,9 @@ export class ConfirmSubscriptionPaymentService {
           eventType: 'payment.confirmed',
           externalEventId,
           payload: {
-            provider: 'MULTICAIXA_EXPRESS',
+            provider:
+              (params.payment.metadata?.gateway as { provider?: string } | undefined)
+                ?.provider ?? params.payment.method,
             expressPhone: params.payment.expressPhone,
           },
           processed: true,

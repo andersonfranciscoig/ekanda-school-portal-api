@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -8,7 +9,11 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
+
+export const PAYMENT_METHODS = ['MULTICAIXA_EXPRESS', 'BANK_REFERENCE'] as const;
+export const CHECKOUT_ACTIONS = ['subscribe', 'renew', 'upgrade'] as const;
 
 export class SchoolScopedQueryDto {
   @ApiProperty({ format: 'uuid' })
@@ -25,22 +30,40 @@ export class SubscribeBodyDto {
   @IsUUID()
   planId!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({ enum: PAYMENT_METHODS, default: 'MULTICAIXA_EXPRESS' })
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS)
+  method?: (typeof PAYMENT_METHODS)[number];
+
+  @ApiPropertyOptional({
     example: '923000000',
-    description: 'Número Multicaixa Express (9 dígitos, começa por 9)',
+    description: 'Obrigatório para Multicaixa Express',
   })
+  @ValidateIf(
+    (dto: SubscribeBodyDto) =>
+      (dto.method ?? 'MULTICAIXA_EXPRESS') === 'MULTICAIXA_EXPRESS',
+  )
   @IsString()
   @Matches(/^9\d{8}$/, {
     message: 'expressPhone must be a 9-digit Angola mobile number',
   })
-  expressPhone!: string;
+  expressPhone?: string;
 }
 
-export class ExpressPhoneBodyDto {
-  @ApiProperty({ example: '923000000' })
+export class SubscriptionPaymentBodyDto {
+  @ApiPropertyOptional({ enum: PAYMENT_METHODS, default: 'MULTICAIXA_EXPRESS' })
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS)
+  method?: (typeof PAYMENT_METHODS)[number];
+
+  @ApiPropertyOptional({ example: '923000000' })
+  @ValidateIf(
+    (dto: SubscriptionPaymentBodyDto) =>
+      (dto.method ?? 'MULTICAIXA_EXPRESS') === 'MULTICAIXA_EXPRESS',
+  )
   @IsString()
   @Matches(/^9\d{8}$/)
-  expressPhone!: string;
+  expressPhone?: string;
 }
 
 export class UpgradeSubscriptionBodyDto {
@@ -48,10 +71,19 @@ export class UpgradeSubscriptionBodyDto {
   @IsUUID()
   planId!: string;
 
-  @ApiProperty({ example: '923000000' })
+  @ApiPropertyOptional({ enum: PAYMENT_METHODS, default: 'MULTICAIXA_EXPRESS' })
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS)
+  method?: (typeof PAYMENT_METHODS)[number];
+
+  @ApiPropertyOptional({ example: '923000000' })
+  @ValidateIf(
+    (dto: UpgradeSubscriptionBodyDto) =>
+      (dto.method ?? 'MULTICAIXA_EXPRESS') === 'MULTICAIXA_EXPRESS',
+  )
   @IsString()
   @Matches(/^9\d{8}$/)
-  expressPhone!: string;
+  expressPhone?: string;
 }
 
 export class StartPaymentBodyDto {
@@ -68,10 +100,49 @@ export class StartPaymentBodyDto {
   @IsUUID()
   subscriptionId?: string;
 
-  @ApiProperty({ example: '923000000' })
+  @ApiPropertyOptional({ enum: PAYMENT_METHODS, default: 'MULTICAIXA_EXPRESS' })
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS)
+  method?: (typeof PAYMENT_METHODS)[number];
+
+  @ApiPropertyOptional({ example: '923000000' })
+  @ValidateIf(
+    (dto: StartPaymentBodyDto) =>
+      (dto.method ?? 'MULTICAIXA_EXPRESS') === 'MULTICAIXA_EXPRESS',
+  )
   @IsString()
   @Matches(/^9\d{8}$/)
-  expressPhone!: string;
+  expressPhone?: string;
+}
+
+export class InitiateCheckoutBodyDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  schoolId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  planId!: string;
+
+  @ApiProperty({ enum: PAYMENT_METHODS })
+  @IsIn(PAYMENT_METHODS)
+  method!: (typeof PAYMENT_METHODS)[number];
+
+  @ApiPropertyOptional({ example: '923000000' })
+  @ValidateIf((dto: InitiateCheckoutBodyDto) => dto.method === 'MULTICAIXA_EXPRESS')
+  @IsString()
+  @Matches(/^9\d{8}$/)
+  expressPhone?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  subscriptionId?: string;
+
+  @ApiPropertyOptional({ enum: CHECKOUT_ACTIONS, default: 'subscribe' })
+  @IsOptional()
+  @IsIn(CHECKOUT_ACTIONS)
+  action?: (typeof CHECKOUT_ACTIONS)[number];
 }
 
 export class ConfirmPaymentBodyDto {

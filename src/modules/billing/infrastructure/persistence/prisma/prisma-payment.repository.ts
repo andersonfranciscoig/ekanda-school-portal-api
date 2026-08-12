@@ -68,6 +68,32 @@ export class PrismaPaymentRepository implements PaymentRepository {
     return record ? this.toDomain(record) : null;
   }
 
+  async findByGatewayCheckoutSessionId(
+    sessionId: string,
+  ): Promise<Payment | null> {
+    const record = await this.prisma.payment.findFirst({
+      where: {
+        metadata: {
+          path: ['gateway', 'checkoutSessionId'],
+          equals: sessionId,
+        },
+      },
+    });
+    return record ? this.toDomain(record) : null;
+  }
+
+  async findByGatewayInvoiceId(invoiceId: string): Promise<Payment | null> {
+    const record = await this.prisma.payment.findFirst({
+      where: {
+        metadata: {
+          path: ['gateway', 'invoiceId'],
+          equals: invoiceId,
+        },
+      },
+    });
+    return record ? this.toDomain(record) : null;
+  }
+
   async findManyBySchoolId(schoolId: string): Promise<Payment[]> {
     const records = await this.prisma.payment.findMany({
       where: { schoolId },
