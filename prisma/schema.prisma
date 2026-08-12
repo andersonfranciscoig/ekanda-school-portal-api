@@ -99,6 +99,7 @@ enum NotificationType {
   SUBSCRIPTION
   SCHOOL
   SECURITY
+  GESTAO
 }
 
 /// Turnos de turma / candidatura (contrato FE: Manhã/Tarde/Noite/Duplo).
@@ -220,6 +221,7 @@ model User {
   searches                 Search[]
   recommendations          Recommendation[]
   notifications            Notification[]
+  gestaoWaitlistEntries    GestaoWaitlistEntry[]
   auditLogs                AuditLog[]
   conciergeSessions        ConciergeSession[]
   conciergeVisits          ConciergeVisit[]
@@ -288,6 +290,7 @@ model School {
   recommendations Recommendation[]
   conciergeVisits ConciergeVisit[]
   wallets         Wallet[]
+  gestaoWaitlist  GestaoWaitlistEntry?
 
   @@index([slug])
   @@index([status])
@@ -920,4 +923,57 @@ model ConciergeVisit {
   @@index([code])
   @@index([status])
   @@map("concierge_visits")
+}
+
+// ─────────────────────────────────────────────
+// Plano Gestão — rollout / fila de testes
+// ─────────────────────────────────────────────
+
+enum GestaoModulePhase {
+  HIDDEN
+  WAITLIST
+  BETA
+  PRODUCTION
+}
+
+enum GestaoWaitlistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Configuração global (singleton — id fixo "default").
+model GestaoModuleConfig {
+  id          String            @id @default("default")
+  phase       GestaoModulePhase @default(WAITLIST)
+  description String
+  testBaseUrl String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("gestao_module_config")
+}
+
+model GestaoWaitlistEntry {
+  id          String               @id @default(uuid()) @db.Uuid
+  schoolId    String               @unique @db.Uuid
+  schoolName  String
+  schoolSlug  String
+  ownerUserId String               @db.Uuid
+  ownerName   String
+  ownerEmail  String
+  status      GestaoWaitlistStatus @default(PENDING)
+  testUrl     String?
+  adminNote   String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  reviewedAt  DateTime?
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  owner  User   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([ownerUserId])
+  @@index([createdAt])
+  @@map("gestao_waitlist_entries")
 }

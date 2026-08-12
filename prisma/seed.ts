@@ -158,9 +158,9 @@ async function upsertPlan(params: {
 async function main() {
   await upsertPlan({
     code: PlanCode.FREE,
-    name: 'Plano Gratuito',
+    name: 'Gratuito',
     description:
-      'Plano gratuito de 30 dias para visibilidade pública do colégio no marketplace. Sem pagamento e sem funcionalidades de gestão.',
+      'Plano gratuito de 30 dias para visibilidade pública do colégio no marketplace. Sem pagamento e sem funcionalidades de gestão escolar.',
     price: 0,
     currency: 'AOA',
     billingPeriod: BillingPeriod.ONE_TIME,
@@ -186,7 +186,7 @@ async function main() {
     code: PlanCode.MANAGEMENT,
     name: 'Gestão',
     description:
-      'Plano futuro de gestão escolar completa. Mantido inactivo durante o MVP.',
+      'Plano de subscrição para gestão escolar completa: alunos, turmas, notas, propinas e comunicação. Lançamento gradual com fila de testes.',
     price: 0,
     currency: 'Kz',
     billingPeriod: BillingPeriod.MONTHLY,

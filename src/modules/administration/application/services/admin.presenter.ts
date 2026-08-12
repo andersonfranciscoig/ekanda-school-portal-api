@@ -1,5 +1,6 @@
 import { PaymentStatus, Prisma } from '@prisma/client';
 import { fullName, shortCode } from '../../../../shared/application/pagination';
+import { planShortLabel, planTagline } from '../../../billing/domain/services/plan-display.service';
 
 export type AdminUserListItem = {
   id: string;
@@ -205,7 +206,8 @@ export function presentAdminSubscription(
     plan: {
       id: row.plan.id,
       code: row.plan.code,
-      name: row.plan.name,
+      name: planShortLabel(row.plan.code) || row.plan.name,
+      tagline: planTagline(row.plan.code, row.plan.name),
       price: Number(row.plan.price),
       currency: row.plan.currency,
     },

@@ -8,7 +8,7 @@ import {
   SUBSCRIPTION_REPOSITORY,
   SubscriptionRepository,
 } from '../../domain/repositories/billing.repositories';
-import { presentSubscription } from '../../infrastructure/http/billing.presenter';
+import { presentPlan, presentSubscription } from '../../infrastructure/http/billing.presenter';
 
 export type GetCurrentSubscriptionInput = {
   actorUserId: string;
@@ -36,6 +36,9 @@ export class GetCurrentSubscriptionUseCase
     if (!latest) return null;
     const plan = await this.plans.findById(latest.planId);
     if (!plan) return null;
-    return presentSubscription(latest, plan);
+    return {
+      subscription: presentSubscription(latest, plan),
+      plan: presentPlan(plan),
+    };
   }
 }

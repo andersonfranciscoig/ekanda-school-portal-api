@@ -3,6 +3,7 @@ import {
   SubscriptionStatus,
 } from '../aggregates/subscription.aggregate';
 import { Plan, PlanCode } from '../entities/plan.entity';
+import { planShortLabel, planTagline } from './plan-display.service';
 
 export type SubscriptionValidityView = {
   status: SubscriptionStatus;
@@ -46,6 +47,7 @@ export type SubscriptionDashboardDto = {
   planId: string;
   planCode: PlanCode | string;
   planName: string;
+  planTagline: string;
   status: SubscriptionStatus;
   startDate: string | null;
   endDate: string | null;
@@ -63,7 +65,8 @@ export function toSubscriptionDashboardDto(
   return {
     planId: plan.id,
     planCode: plan.code,
-    planName: plan.name,
+    planName: planShortLabel(plan.code) || plan.name,
+    planTagline: planTagline(plan.code, plan.name),
     status: validity.status,
     startDate: subscription.startDate?.toISOString() ?? null,
     endDate: subscription.endDate?.toISOString() ?? null,

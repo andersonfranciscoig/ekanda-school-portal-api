@@ -12,6 +12,7 @@ import { ApplicationModule } from './modules/application/application.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AdministrationModule } from './modules/administration/administration.module';
+import { GestaoRolloutModule } from './modules/gestao-rollout/gestao-rollout.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AdministrationModule } from './modules/administration/administration.mo
     ConciergeModule,
     ApplicationModule,
     BillingModule,
+    GestaoRolloutModule,
     NotificationModule,
     AdministrationModule,
   ],
