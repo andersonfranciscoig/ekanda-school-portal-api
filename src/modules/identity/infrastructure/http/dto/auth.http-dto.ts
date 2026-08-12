@@ -59,3 +59,10 @@ export class LoginHttpDto {
   @MinLength(8)
   password!: string;
 }
+
+export class RefreshHttpDto {
+  @ApiPropertyOptional({ description: 'Refresh token (alternativa ao cookie httpOnly)' })
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
+}

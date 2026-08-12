@@ -48,16 +48,19 @@ export class CreateOrUpdateSchoolHttpDto {
 
   @ApiPropertyOptional({ example: '+244900000000' })
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsString()
   phone?: string;
 
   @ApiPropertyOptional({ example: 'contacto@horizonte.ao' })
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsEmail()
   email?: string;
 
   @ApiPropertyOptional({ example: 'https://horizonte.ao' })
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsUrl()
   website?: string;
 
