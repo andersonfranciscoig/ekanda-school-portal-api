@@ -20,6 +20,7 @@ import { RolesGuard } from '../../../../identity/infrastructure/auth/roles.guard
 import { ApproveSchoolUseCase } from '../../../application/use-cases/approve-school.use-case';
 import { CancelAdminSubscriptionUseCase } from '../../../application/use-cases/cancel-admin-subscription.use-case';
 import { ChangeSchoolStatusUseCase } from '../../../application/use-cases/change-school-status.use-case';
+import { GetAdminReportsUseCase } from '../../../application/use-cases/get-admin-reports.use-case';
 import { ListAdminActivityUseCase } from '../../../application/use-cases/list-admin-activity.use-case';
 import { CreateAdminUserUseCase } from '../../../application/use-cases/create-admin-user.use-case';
 import { CreateOrUpdatePlanUseCase } from '../../../application/use-cases/create-or-update-plan.use-case';
@@ -69,6 +70,7 @@ export class AdminController {
     private readonly viewApplications: ViewApplicationsUseCase,
     private readonly changeSchoolStatus: ChangeSchoolStatusUseCase,
     private readonly listActivity: ListAdminActivityUseCase,
+    private readonly getReports: GetAdminReportsUseCase,
     private readonly schoolQueries: SchoolHttpQueryService,
   ) {}
 
@@ -287,6 +289,12 @@ export class AdminController {
       await this.cancelSubscription.execute({ subscriptionId: id }),
       'Subscription scheduled to cancel at period end',
     );
+  }
+
+  @Get('reports')
+  @ApiOperation({ summary: 'Relatórios agregados da plataforma' })
+  async reports() {
+    return ok(await this.getReports.execute(), 'Admin reports');
   }
 
   @Get('applications')

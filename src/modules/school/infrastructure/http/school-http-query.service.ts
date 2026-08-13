@@ -222,7 +222,15 @@ export class SchoolHttpQueryService {
     const visible = await this.entitlements.isPublicProfileVisible(school.id);
     if (!visible) throw new NotFoundException('Colégio não encontrado');
 
+    void this.recordProfileView(school.id).catch(() => undefined);
+
     return this.presentSchoolDetail(school);
+  }
+
+  private async recordProfileView(schoolId: string) {
+    await this.prisma.schoolProfileView.create({
+      data: { schoolId, source: 'public_profile' },
+    });
   }
 
   async findBySlugForAdmin(slug: string) {

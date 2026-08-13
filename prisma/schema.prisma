@@ -292,6 +292,7 @@ model School {
   conciergeVisits ConciergeVisit[]
   wallets         Wallet[]
   gestaoWaitlist  GestaoWaitlistEntry?
+  profileViews    SchoolProfileView[]
 
   @@index([slug])
   @@index([status])
@@ -744,6 +745,20 @@ model Review {
   @@index([deviceId])
   @@index([schoolId, isPublished])
   @@map("reviews")
+}
+
+model SchoolProfileView {
+  id       String   @id @default(uuid()) @db.Uuid
+  schoolId String   @db.Uuid
+  viewedAt DateTime @default(now())
+  source   String?
+  userId   String?  @db.Uuid
+  deviceId String?
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, viewedAt])
+  @@map("school_profile_views")
 }
 
 model Search {

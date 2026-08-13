@@ -32,6 +32,7 @@ import { GetSchoolPriceUseCase } from '../../../application/use-cases/get-school
 import { CreateOrUpdateSchoolGalleryUseCase } from '../../../application/use-cases/create-or-update-school-gallery.use-case';
 import { GetSchoolOnboardingReviewUseCase } from '../../../application/use-cases/get-school-onboarding-review.use-case';
 import { CompleteSchoolOnboardingUseCase } from '../../../application/use-cases/complete-school-onboarding.use-case';
+import { GetSchoolDashboardUseCase } from '../../../application/use-cases/get-school-dashboard.use-case';
 import { DeleteSchoolLogoUseCase } from '../../../application/use-cases/delete-school-logo.use-case';
 import { DeleteSchoolLocationUseCase } from '../../../application/use-cases/delete-school-location.use-case';
 import { DeleteSchoolClassUseCase } from '../../../application/use-cases/delete-school-class.use-case';
@@ -106,6 +107,7 @@ export class SchoolsController {
     private readonly createOrUpdateSchoolGallery: CreateOrUpdateSchoolGalleryUseCase,
     private readonly getSchoolOnboardingReview: GetSchoolOnboardingReviewUseCase,
     private readonly completeSchoolOnboarding: CompleteSchoolOnboardingUseCase,
+    private readonly getSchoolDashboard: GetSchoolDashboardUseCase,
     private readonly deleteSchoolLogo: DeleteSchoolLogoUseCase,
     private readonly deleteSchoolLocation: DeleteSchoolLocationUseCase,
     private readonly deleteSchoolClass: DeleteSchoolClassUseCase,
@@ -569,6 +571,21 @@ export class SchoolsController {
       userId: user.id,
     });
     return ok(result, 'School onboarding completed successfully');
+  }
+
+  @Get(':schoolId/dashboard')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Dashboard do colégio — métricas e gráficos' })
+  async dashboard(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const data = await this.getSchoolDashboard.execute({
+      schoolId,
+      actorUserId: user.id,
+    });
+    return ok(data, 'School dashboard');
   }
 
   @Get(':id')

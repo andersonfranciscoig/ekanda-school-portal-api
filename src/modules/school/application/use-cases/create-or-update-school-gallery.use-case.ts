@@ -10,7 +10,6 @@ import {
   FileUploadFailedException,
   InvalidSchoolGalleryException,
   SchoolGalleryAccessDeniedException,
-  SchoolGalleryAlreadyExistsException,
   SchoolGalleryNotFoundException,
 } from '../../domain/exceptions/school.exceptions';
 import {
@@ -64,6 +63,18 @@ export class CreateOrUpdateSchoolGalleryUseCase
     if (input.id) {
       return this.update(input, photos, videos);
     }
+
+    // Sem id: criar se vazio; se já existir galeria, actualizar (replace)
+    // — evita Conflict "Send id to update" no re-upload do onboarding.
+    const existing = await this.gallery.findBySchoolId(input.schoolId);
+    if (existing.length > 0) {
+      return this.update(
+        { ...input, id: existing[0]!.id },
+        photos,
+        videos,
+      );
+    }
+
     return this.create(input, photos, videos);
   }
 
@@ -72,11 +83,6 @@ export class CreateOrUpdateSchoolGalleryUseCase
     photos: UploadFileInput[],
     videos: UploadFileInput[],
   ): Promise<CreateOrUpdateSchoolGalleryOutput> {
-    const existing = await this.gallery.findBySchoolId(input.schoolId);
-    if (existing.length > 0) {
-      throw new SchoolGalleryAlreadyExistsException();
-    }
-
     const items = await this.uploadAndBuildItems(
       input.schoolId,
       photos,
@@ -159,42 +165,39 @@ export class CreateOrUpdateSchoolGalleryUseCase
     photos: UploadFileInput[],
     videos: UploadFileInput[],
   ): Promise<SchoolGalleryItem[]> {
-    const items: SchoolGalleryItem[] = [];
-    let order = 0;
-
-    for (const file of photos) {
-      const uploaded = await this.uploadSafe(file, schoolId, 'photos', [
-        ...PHOTO_MIME,
-      ], PHOTO_MAX_BYTES);
-      items.push(
-        SchoolGalleryItem.create({
+    const photoResults = await Promise.all(
+      photos.map(async (file, index) => {
+        const uploaded = await this.uploadSafe(file, schoolId, 'photos', [
+          ...PHOTO_MIME,
+        ], PHOTO_MAX_BYTES);
+        return SchoolGalleryItem.create({
           id: crypto.randomUUID(),
           schoolId,
           url: uploaded.url,
           kind: GalleryKind.PHOTO,
-          order: order++,
+          order: index,
           fileName: uploaded.originalName,
-        }),
-      );
-    }
+        });
+      }),
+    );
 
-    for (const file of videos) {
-      const uploaded = await this.uploadSafe(file, schoolId, 'videos', [
-        ...VIDEO_MIME,
-      ], VIDEO_MAX_BYTES);
-      items.push(
-        SchoolGalleryItem.create({
+    const videoResults = await Promise.all(
+      videos.map(async (file, index) => {
+        const uploaded = await this.uploadSafe(file, schoolId, 'videos', [
+          ...VIDEO_MIME,
+        ], VIDEO_MAX_BYTES);
+        return SchoolGalleryItem.create({
           id: crypto.randomUUID(),
           schoolId,
           url: uploaded.url,
           kind: GalleryKind.VIDEO,
-          order: order++,
+          order: photos.length + index,
           fileName: uploaded.originalName,
-        }),
-      );
-    }
+        });
+      }),
+    );
 
-    return items;
+    return [...photoResults, ...videoResults];
   }
 
   private async uploadSafe(

@@ -5,6 +5,7 @@ export * from './change-school-status.use-case';
 export * from './create-admin-user.use-case';
 export * from './create-or-update-plan.use-case';
 export * from './deactivate-plan.use-case';
+export * from './get-admin-reports.use-case';
 export * from './list-admin-activity.use-case';
 export * from './patch-admin-user.use-case';
 export * from './reactivate-school.use-case';

@@ -17,6 +17,7 @@ import { CreateOrUpdateSchoolServiceUseCase } from './application/use-cases/crea
 import { CreateOrUpdateSchoolPriceUseCase } from './application/use-cases/create-or-update-school-price.use-case';
 import { GetSchoolPriceUseCase } from './application/use-cases/get-school-price.use-case';
 import { CreateOrUpdateSchoolGalleryUseCase } from './application/use-cases/create-or-update-school-gallery.use-case';
+import { GetSchoolDashboardUseCase } from './application/use-cases/get-school-dashboard.use-case';
 import { GetSchoolOnboardingReviewUseCase } from './application/use-cases/get-school-onboarding-review.use-case';
 import { CompleteSchoolOnboardingUseCase } from './application/use-cases/complete-school-onboarding.use-case';
 import { DeleteSchoolLogoUseCase } from './application/use-cases/delete-school-logo.use-case';
@@ -70,6 +71,7 @@ const schoolUseCases = [
   SuspendSchoolUseCase,
   ReactivateSchoolUseCase,
   ExpireSchoolUseCase,
+  GetSchoolDashboardUseCase,
 ];
 
 @Module({

@@ -7,7 +7,6 @@ import {
   InvalidSchoolGalleryException,
   SchoolAccessDeniedException,
   SchoolGalleryAccessDeniedException,
-  SchoolGalleryAlreadyExistsException,
   SchoolGalleryNotFoundException,
   SchoolNotFoundException,
 } from '../../domain/exceptions/school.exceptions';
@@ -118,25 +117,36 @@ describe('CreateOrUpdateSchoolGalleryUseCase', () => {
     expect(files.upload).toHaveBeenCalledTimes(3);
   });
 
-  it('rejects create when gallery already exists', async () => {
-    gallery.findBySchoolId.mockResolvedValue([
-      SchoolGalleryItem.rehydrate({
-        id: itemId,
+  it('updates when gallery already exists even without id', async () => {
+    const old = SchoolGalleryItem.rehydrate({
+      id: itemId,
+      schoolId,
+      url: 'https://cdn/x',
+      kind: GalleryKind.PHOTO,
+      order: 0,
+      fileName: 'x.jpg',
+    });
+    gallery.findBySchoolId.mockResolvedValue([old]);
+    gallery.findById.mockResolvedValue(old);
+    gallery.replaceAll.mockResolvedValue([
+      SchoolGalleryItem.create({
+        id: crypto.randomUUID(),
         schoolId,
-        url: 'https://cdn/x',
+        url: 'https://cdn/a.jpg',
         kind: GalleryKind.PHOTO,
         order: 0,
-        fileName: 'x.jpg',
+        fileName: 'a.jpg',
       }),
     ]);
 
-    await expect(
-      useCase.execute({
-        schoolId,
-        actorUserId,
-        photos: [fakeFile('a.jpg', 'image/jpeg')],
-      }),
-    ).rejects.toBeInstanceOf(SchoolGalleryAlreadyExistsException);
+    const result = await useCase.execute({
+      schoolId,
+      actorUserId,
+      photos: [fakeFile('a.jpg', 'image/jpeg')],
+    });
+
+    expect(result.operation).toBe('updated');
+    expect(gallery.replaceAll).toHaveBeenCalled();
   });
 
   it('rejects invalid photo mime', async () => {
