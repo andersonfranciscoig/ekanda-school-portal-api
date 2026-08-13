@@ -195,8 +195,18 @@ async function main() {
     features: MANAGEMENT_FEATURES,
   });
 
+  await prisma.platformSetting.upsert({
+    where: { id: 'default' },
+    create: {
+      id: 'default',
+      betaEnabled: false,
+      whatsappCommunityUrl: null,
+    },
+    update: {},
+  });
+
   console.log(
-    'Seed concluído: planos FREE (activo), PRESENCE (activo) e MANAGEMENT (inactivo).',
+    'Seed concluído: planos FREE (activo), PRESENCE (activo) e MANAGEMENT (inactivo); platform_settings.',
   );
 }
 

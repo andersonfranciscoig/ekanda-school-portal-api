@@ -993,3 +993,43 @@ model GestaoWaitlistEntry {
   @@index([createdAt])
   @@map("gestao_waitlist_entries")
 }
+
+// ---------------------------------------------------------------------------
+// Platform beta gate (acesso restrito MVP)
+// ---------------------------------------------------------------------------
+
+enum BetaAccessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Configuração global da plataforma (singleton — id fixo "default").
+model PlatformSetting {
+  id                   String   @id @default("default")
+  betaEnabled          Boolean  @default(false)
+  whatsappCommunityUrl String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+model BetaAccessRequest {
+  id                String           @id @default(uuid()) @db.Uuid
+  email             String
+  phone             String
+  status            BetaAccessStatus @default(PENDING)
+  adminNote         String?
+  reviewedAt        DateTime?
+  sessionTokenHash  String?
+  sessionExpiresAt  DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([email])
+  @@index([phone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("beta_access_requests")
+}

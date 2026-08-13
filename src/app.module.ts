@@ -13,6 +13,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AdministrationModule } from './modules/administration/administration.module';
 import { GestaoRolloutModule } from './modules/gestao-rollout/gestao-rollout.module';
+import { PlatformBetaModule } from './modules/platform-beta/platform-beta.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { GestaoRolloutModule } from './modules/gestao-rollout/gestao-rollout.mod
     ApplicationModule,
     BillingModule,
     GestaoRolloutModule,
+    PlatformBetaModule,
     NotificationModule,
     AdministrationModule,
   ],

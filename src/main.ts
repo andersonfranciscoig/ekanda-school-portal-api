@@ -74,12 +74,27 @@ async function bootstrap() {
     .addTag('notifications', 'Notificações')
     .addTag('admin', 'Administração da plataforma')
     .addTag('audit', 'Auditoria')
+    .addTag('platform-beta', 'Acesso beta / comunidade')
+    .addTag('channels-whatsapp', 'WhatsApp Concierge')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: { persistAuthorization: true },
   });
+
+  // Anti-clickjacking (MVP beta)
+  app.use(
+    (
+      _req: import('express').Request,
+      res: import('express').Response,
+      next: import('express').NextFunction,
+    ) => {
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+      next();
+    },
+  );
 
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
