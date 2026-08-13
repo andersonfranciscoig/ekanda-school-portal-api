@@ -155,6 +155,31 @@ export class User extends AggregateRoot {
     this._updatedAt = new Date();
   }
 
+  updateProfile(params: {
+    firstName?: string;
+    lastName?: string;
+    phone?: Phone | null;
+  }): void {
+    if (params.firstName !== undefined) {
+      const value = params.firstName.trim();
+      if (value.length < 2) {
+        throw new InvariantViolationException('Nome inválido');
+      }
+      this._firstName = value.slice(0, 80);
+    }
+    if (params.lastName !== undefined) {
+      const value = params.lastName.trim();
+      if (value.length < 2) {
+        throw new InvariantViolationException('Apelido inválido');
+      }
+      this._lastName = value.slice(0, 80);
+    }
+    if (params.phone !== undefined) {
+      this._phone = params.phone;
+    }
+    this._updatedAt = new Date();
+  }
+
   toPublic() {
     return {
       id: this._id,

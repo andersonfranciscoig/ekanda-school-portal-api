@@ -7,6 +7,7 @@ import { USER_REPOSITORY } from './domain/repositories/user.repository';
 import { RegisterUserUseCase, PASSWORD_HASHER, TOKEN_ISSUER } from './application/use-cases/register-user.use-case';
 import { LoginUserUseCase } from './application/use-cases/login-user.use-case';
 import { GetCurrentUserUseCase } from './application/use-cases/get-current-user.use-case';
+import { UpdateCurrentUserUseCase } from './application/use-cases/update-current-user.use-case';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma/prisma-user.repository';
 import { BcryptPasswordHasher } from './infrastructure/auth/bcrypt-password.hasher';
 import { JwtTokenIssuer } from './infrastructure/auth/jwt-token.issuer';
@@ -39,6 +40,7 @@ import { UsersController } from './infrastructure/http/controllers/users.control
     RegisterUserUseCase,
     LoginUserUseCase,
     GetCurrentUserUseCase,
+    UpdateCurrentUserUseCase,
     JwtStrategy,
     JwtAuthGuard,
     OptionalJwtAuthGuard,
