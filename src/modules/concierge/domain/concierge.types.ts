@@ -136,15 +136,15 @@ export function needsToMarketplaceFilters(needs: NeedsProfile): {
   if (needs.informatica === true) serviceIds.push('informatica');
 
   let teachingType: string | undefined;
-  const tipo = needs.tipoEnsino.trim().toLowerCase();
+  const tipo = (needs.tipoEnsino ?? '').trim().toLowerCase();
   if (tipo.includes('semi')) teachingType = 'SEMI_PRIVATE';
   else if (tipo.includes('internacional')) teachingType = 'INTERNATIONAL';
   else if (tipo.includes('privado')) teachingType = 'PRIVATE';
 
   return {
-    municipality: needs.municipio.trim() || undefined,
-    province: needs.provincia.trim() || undefined,
-    classLabel: needs.classe.trim() || undefined,
+    municipality: (needs.municipio ?? '').trim() || undefined,
+    province: (needs.provincia ?? '').trim() || undefined,
+    classLabel: (needs.classe ?? '').trim() || undefined,
     tuitionMax: needs.precoMax ?? undefined,
     serviceIds,
     fullDay: needs.integral === true ? true : undefined,
