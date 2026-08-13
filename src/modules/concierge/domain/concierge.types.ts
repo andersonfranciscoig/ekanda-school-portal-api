@@ -65,7 +65,7 @@ export const EMPTY_NEEDS: NeedsProfile = {
 };
 
 export const WELCOME_MESSAGE =
-  'Olá 👋\nSou o Ekanda Concierge.\n\nVou ajudá-lo a encontrar colégios que correspondam às suas necessidades.\n\nPode começar por me contar o que procura.';
+  'Olá! Sou o assistente da Ekanda.\n\nEstou aqui para o ajudar a encontrar um colégio que faça sentido para a sua família — zona, classe, orçamento e o que for importante para vocês.\n\nPode escrever à vontade, como se estivesse a falar comigo. Por exemplo: «Procuro 5.ª classe em Talatona, até 80 mil.»';
 
 export const ALLOWED_VISIT_TIMES = [
   '09:00',

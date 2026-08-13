@@ -35,7 +35,24 @@ export class ProcessConciergeTurnUseCase
     });
 
     const currentNeeds = session.needs as NeedsProfile;
-    const llm = await this.ollama.interpretTurn(input.message, currentNeeds);
+    const history = (session.messages ?? [])
+      .filter(
+        (m) =>
+          (m.role === 'user' || m.role === 'assistant') &&
+          m.kind === ConciergeMessageKind.text &&
+          Boolean(m.content?.trim()),
+      )
+      .slice(-10)
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+    const llm = await this.ollama.interpretTurn(
+      input.message,
+      currentNeeds,
+      history,
+    );
     const needs = mergeNeeds(currentNeeds, llm.needsPatch);
 
     if (llm.actions.softAdjust === 'cheaper' && needs.precoMax != null) {
