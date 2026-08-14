@@ -1004,11 +1004,18 @@ enum BetaAccessStatus {
   REJECTED
 }
 
+enum BetaTesterType {
+  GUARDIAN
+  SCHOOL_OWNER
+}
+
 /// Configuração global da plataforma (singleton — id fixo "default").
 model PlatformSetting {
   id                   String   @id @default("default")
   betaEnabled          Boolean  @default(false)
   whatsappCommunityUrl String?
+  betaLimitGuardian    Int      @default(50)
+  betaLimitSchoolOwner Int      @default(20)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -1019,6 +1026,7 @@ model BetaAccessRequest {
   id                String           @id @default(uuid()) @db.Uuid
   email             String
   phone             String
+  testerType        BetaTesterType
   status            BetaAccessStatus @default(PENDING)
   adminNote         String?
   reviewedAt        DateTime?
@@ -1030,6 +1038,7 @@ model BetaAccessRequest {
   @@unique([email])
   @@index([phone])
   @@index([status])
+  @@index([testerType])
   @@index([createdAt])
   @@map("beta_access_requests")
 }

@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import type { StringValue } from 'ms';
+import { PlatformBetaModule } from '../platform-beta/platform-beta.module';
 import { USER_REPOSITORY } from './domain/repositories/user.repository';
 import { RegisterUserUseCase, PASSWORD_HASHER, TOKEN_ISSUER } from './application/use-cases/register-user.use-case';
 import { LoginUserUseCase } from './application/use-cases/login-user.use-case';
@@ -20,6 +21,7 @@ import { UsersController } from './infrastructure/http/controllers/users.control
 
 @Module({
   imports: [
+    forwardRef(() => PlatformBetaModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

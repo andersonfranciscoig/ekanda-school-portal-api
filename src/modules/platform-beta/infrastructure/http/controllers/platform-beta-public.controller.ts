@@ -14,7 +14,10 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CookieOptions, Request, Response } from 'express';
 import { ok } from '../../../../../shared/application/api-response';
 import { PlatformBetaService } from '../../../application/platform-beta.service';
-import { BetaAccessBodyDto } from '../dto/platform-beta.http-dto';
+import {
+  BetaAccessRequestBodyDto,
+  BetaAccessVerifyBodyDto,
+} from '../dto/platform-beta.http-dto';
 import { assertRateLimit } from '../rate-limit';
 
 export const BETA_COOKIE = 'ekanda_beta';
@@ -52,7 +55,7 @@ export class PlatformBetaPublicController {
   @Post('beta/requests')
   @HttpCode(200)
   @ApiOperation({ summary: 'Pedir acesso à comunidade beta' })
-  async requestAccess(@Body() body: BetaAccessBodyDto, @Req() req: Request) {
+  async requestAccess(@Body() body: BetaAccessRequestBodyDto, @Req() req: Request) {
     try {
       assertRateLimit(`beta:req:${clientIp(req)}`, 10, 60_000);
       assertRateLimit(`beta:req:email:${body.email.toLowerCase()}`, 5, 60_000);
@@ -73,7 +76,7 @@ export class PlatformBetaPublicController {
       'Confirmar email+telefone (aprovado) e criar sessão beta (cookie httpOnly)',
   })
   async verify(
-    @Body() body: BetaAccessBodyDto,
+    @Body() body: BetaAccessVerifyBodyDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
@@ -98,6 +101,7 @@ export class PlatformBetaPublicController {
         status: 'APPROVED' as const,
         email: result.request.email,
         phone: result.request.phone,
+        testerType: result.request.testerType,
         whatsappCommunityUrl: result.whatsappCommunityUrl,
         welcome: true,
       },
@@ -114,7 +118,12 @@ export class PlatformBetaPublicController {
       throw new UnauthorizedException('Beta session required');
     }
     return ok(
-      { authenticated: true, email: parsed.email, requestId: parsed.requestId },
+      {
+        authenticated: true,
+        email: parsed.email,
+        requestId: parsed.requestId,
+        testerType: parsed.testerType,
+      },
       'Beta session valid',
     );
   }

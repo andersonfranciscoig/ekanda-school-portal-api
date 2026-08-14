@@ -201,6 +201,8 @@ async function main() {
       id: 'default',
       betaEnabled: false,
       whatsappCommunityUrl: null,
+      betaLimitGuardian: 50,
+      betaLimitSchoolOwner: 20,
     },
     update: {},
   });

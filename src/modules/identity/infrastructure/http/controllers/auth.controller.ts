@@ -22,6 +22,8 @@ import { LoginUserUseCase } from '../../../application/use-cases/login-user.use-
 import { GetCurrentUserUseCase } from '../../../application/use-cases/get-current-user.use-case';
 import { TokenIssuer } from '../../../application/ports/token-issuer.port';
 import { TOKEN_ISSUER } from '../../../application/use-cases/register-user.use-case';
+import { UserRole } from '../../../domain/entities/user.entity';
+import { PlatformBetaService } from '../../../../platform-beta/application/platform-beta.service';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../auth/optional-jwt-auth.guard';
@@ -83,6 +85,7 @@ export class AuthController {
     private readonly registerUser: RegisterUserUseCase,
     private readonly loginUser: LoginUserUseCase,
     private readonly getCurrentUser: GetCurrentUserUseCase,
+    private readonly platformBeta: PlatformBetaService,
     @Inject(TOKEN_ISSUER) private readonly tokenIssuer: TokenIssuer,
   ) {}
 
@@ -100,6 +103,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @CurrentUser() actor?: AuthUser,
   ) {
+    const role = dto.role ?? UserRole.GUARDIAN;
+    await this.platformBeta.assertCanRegister(dto.email, role);
+
     const { accessToken, refreshToken, user } =
       await this.registerUser.execute({
         ...dto,

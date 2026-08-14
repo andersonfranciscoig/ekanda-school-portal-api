@@ -8,16 +8,25 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { BetaAccessStatus, Prisma } from '@prisma/client';
+import { BetaAccessStatus, BetaTesterType, Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
+import { UserRole } from '../../identity/domain/entities/user.entity';
 import { PrismaService } from '../../../shared/infrastructure/persistence/prisma/prisma.service';
 
 const SETTINGS_ID = 'default';
 const SESSION_TTL_SEC = 14 * 24 * 60 * 60; // 14 days
 
+export type BetaSlotsDto = {
+  guardian: { limit: number; used: number; available: number };
+  schoolOwner: { limit: number; used: number; available: number };
+};
+
 export type PlatformSettingsDto = {
   betaEnabled: boolean;
   whatsappCommunityUrl: string | null;
+  betaLimitGuardian: number;
+  betaLimitSchoolOwner: number;
+  betaSlots: BetaSlotsDto;
   updatedAt: string;
 };
 
@@ -25,6 +34,7 @@ export type BetaAccessRequestDto = {
   id: string;
   email: string;
   phone: string;
+  testerType: BetaTesterType;
   status: BetaAccessStatus;
   adminNote: string | null;
   createdAt: string;
@@ -51,6 +61,7 @@ function presentRequest(row: {
   id: string;
   email: string;
   phone: string;
+  testerType: BetaTesterType;
   status: BetaAccessStatus;
   adminNote: string | null;
   createdAt: Date;
@@ -61,12 +72,23 @@ function presentRequest(row: {
     id: row.id,
     email: row.email,
     phone: row.phone,
+    testerType: row.testerType,
     status: row.status,
     adminNote: row.adminNote,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
   };
+}
+
+function roleToTesterType(role: UserRole): BetaTesterType | null {
+  if (role === UserRole.GUARDIAN) return BetaTesterType.GUARDIAN;
+  if (role === UserRole.SCHOOL_OWNER) return BetaTesterType.SCHOOL_OWNER;
+  return null;
+}
+
+function testerTypeLabel(type: BetaTesterType): string {
+  return type === BetaTesterType.GUARDIAN ? 'encarregado' : 'colégio';
 }
 
 @Injectable()
@@ -84,9 +106,57 @@ export class PlatformBetaService {
         id: SETTINGS_ID,
         betaEnabled: false,
         whatsappCommunityUrl: null,
+        betaLimitGuardian: 50,
+        betaLimitSchoolOwner: 20,
       },
       update: {},
     });
+  }
+
+  private async countUsedSlots(testerType: BetaTesterType): Promise<number> {
+    return this.prisma.betaAccessRequest.count({
+      where: {
+        testerType,
+        status: { in: [BetaAccessStatus.PENDING, BetaAccessStatus.APPROVED] },
+      },
+    });
+  }
+
+  private async buildSlots(row: {
+    betaLimitGuardian: number;
+    betaLimitSchoolOwner: number;
+  }): Promise<BetaSlotsDto> {
+    const [guardianUsed, schoolUsed] = await Promise.all([
+      this.countUsedSlots(BetaTesterType.GUARDIAN),
+      this.countUsedSlots(BetaTesterType.SCHOOL_OWNER),
+    ]);
+    return {
+      guardian: {
+        limit: row.betaLimitGuardian,
+        used: guardianUsed,
+        available: Math.max(0, row.betaLimitGuardian - guardianUsed),
+      },
+      schoolOwner: {
+        limit: row.betaLimitSchoolOwner,
+        used: schoolUsed,
+        available: Math.max(0, row.betaLimitSchoolOwner - schoolUsed),
+      },
+    };
+  }
+
+  private async assertSlotAvailable(testerType: BetaTesterType) {
+    const settings = await this.ensureSettings();
+    const used = await this.countUsedSlots(testerType);
+    const limit =
+      testerType === BetaTesterType.GUARDIAN
+        ? settings.betaLimitGuardian
+        : settings.betaLimitSchoolOwner;
+
+    if (used >= limit) {
+      throw new ConflictException(
+        `Atingimos o limite de vagas para testar como ${testerTypeLabel(testerType)}. Tente mais tarde ou escolha outra área.`,
+      );
+    }
   }
 
   async getSettings(): Promise<PlatformSettingsDto> {
@@ -94,6 +164,9 @@ export class PlatformBetaService {
     return {
       betaEnabled: row.betaEnabled,
       whatsappCommunityUrl: row.whatsappCommunityUrl,
+      betaLimitGuardian: row.betaLimitGuardian,
+      betaLimitSchoolOwner: row.betaLimitSchoolOwner,
+      betaSlots: await this.buildSlots(row),
       updatedAt: row.updatedAt.toISOString(),
     };
   }
@@ -101,6 +174,8 @@ export class PlatformBetaService {
   async updateSettings(input: {
     betaEnabled?: boolean;
     whatsappCommunityUrl?: string | null;
+    betaLimitGuardian?: number;
+    betaLimitSchoolOwner?: number;
   }): Promise<PlatformSettingsDto> {
     await this.ensureSettings();
     const row = await this.prisma.platformSetting.update({
@@ -114,11 +189,20 @@ export class PlatformBetaService {
               whatsappCommunityUrl: input.whatsappCommunityUrl?.trim() || null,
             }
           : {}),
+        ...(input.betaLimitGuardian !== undefined
+          ? { betaLimitGuardian: Math.max(0, input.betaLimitGuardian) }
+          : {}),
+        ...(input.betaLimitSchoolOwner !== undefined
+          ? { betaLimitSchoolOwner: Math.max(0, input.betaLimitSchoolOwner) }
+          : {}),
       },
     });
     return {
       betaEnabled: row.betaEnabled,
       whatsappCommunityUrl: row.whatsappCommunityUrl,
+      betaLimitGuardian: row.betaLimitGuardian,
+      betaLimitSchoolOwner: row.betaLimitSchoolOwner,
+      betaSlots: await this.buildSlots(row),
       updatedAt: row.updatedAt.toISOString(),
     };
   }
@@ -126,14 +210,23 @@ export class PlatformBetaService {
   async requestAccess(input: {
     email: string;
     phone: string;
+    testerType: BetaTesterType;
   }): Promise<BetaAccessRequestDto> {
     const email = normalizeEmail(input.email);
     const phone = normalizePhone(input.phone);
+    const testerType = input.testerType;
+
     if (!email || !email.includes('@')) {
       throw new BadRequestException('Email inválido.');
     }
     if (phone.length < 9) {
       throw new BadRequestException('Telefone inválido.');
+    }
+    if (
+      testerType !== BetaTesterType.GUARDIAN &&
+      testerType !== BetaTesterType.SCHOOL_OWNER
+    ) {
+      throw new BadRequestException('Tipo de teste inválido.');
     }
 
     const existing = await this.prisma.betaAccessRequest.findUnique({
@@ -147,7 +240,11 @@ export class PlatformBetaService {
         );
       }
       if (existing.status === 'PENDING') {
-        // Actualizar telefone se mudou
+        if (existing.testerType !== testerType) {
+          throw new ConflictException(
+            `Este email já tem um pedido pendente como ${testerTypeLabel(existing.testerType)}.`,
+          );
+        }
         if (existing.phone !== phone) {
           const updated = await this.prisma.betaAccessRequest.update({
             where: { id: existing.id },
@@ -157,11 +254,13 @@ export class PlatformBetaService {
         }
         return presentRequest(existing);
       }
-      // REJECTED → reabrir como PENDING
+      // REJECTED → reabrir como PENDING (verificar vaga)
+      await this.assertSlotAvailable(testerType);
       const reopened = await this.prisma.betaAccessRequest.update({
         where: { id: existing.id },
         data: {
           phone,
+          testerType,
           status: BetaAccessStatus.PENDING,
           adminNote: null,
           reviewedAt: null,
@@ -172,11 +271,14 @@ export class PlatformBetaService {
       return presentRequest(reopened);
     }
 
+    await this.assertSlotAvailable(testerType);
+
     const created = await this.prisma.betaAccessRequest.create({
       data: {
         id: randomUUID(),
         email,
         phone,
+        testerType,
       },
     });
     return presentRequest(created);
@@ -248,10 +350,6 @@ export class PlatformBetaService {
     return presentRequest(updated);
   }
 
-  /**
-   * Confirma email+telefone de um pedido APPROVED e emite JWT de sessão beta.
-   * Devolve o token em claro para o controller setar o cookie; só o hash fica na BD.
-   */
   async verifyAndIssueSession(input: {
     email: string;
     phone: string;
@@ -297,7 +395,13 @@ export class PlatformBetaService {
     const jti = randomUUID();
     const expiresAt = new Date(Date.now() + SESSION_TTL_SEC * 1000);
     const token = await this.jwt.signAsync(
-      { sub: row.id, email: row.email, typ: 'beta', jti },
+      {
+        sub: row.id,
+        email: row.email,
+        typ: 'beta',
+        jti,
+        testerType: row.testerType,
+      },
       {
         secret: this.betaSecret(),
         expiresIn: SESSION_TTL_SEC,
@@ -322,11 +426,15 @@ export class PlatformBetaService {
     };
   }
 
-  async validateSessionToken(token: string | undefined | null): Promise<{
-    ok: true;
-    requestId: string;
-    email: string;
-  } | { ok: false }> {
+  async validateSessionToken(token: string | undefined | null): Promise<
+    | {
+        ok: true;
+        requestId: string;
+        email: string;
+        testerType: BetaTesterType;
+      }
+    | { ok: false }
+  > {
     if (!token?.trim()) return { ok: false };
     try {
       const payload = await this.jwt.verifyAsync<{
@@ -334,6 +442,7 @@ export class PlatformBetaService {
         email: string;
         typ?: string;
         jti?: string;
+        testerType?: BetaTesterType;
       }>(token, { secret: this.betaSecret() });
 
       if (payload.typ !== 'beta' || !payload.jti || !payload.sub) {
@@ -349,7 +458,12 @@ export class PlatformBetaService {
       if (row.sessionTokenHash !== hashToken(payload.jti)) return { ok: false };
       if (row.email !== payload.email) return { ok: false };
 
-      return { ok: true, requestId: row.id, email: row.email };
+      return {
+        ok: true,
+        requestId: row.id,
+        email: row.email,
+        testerType: row.testerType,
+      };
     } catch {
       return { ok: false };
     }
@@ -360,6 +474,40 @@ export class PlatformBetaService {
       where: { id: requestId },
       data: { sessionTokenHash: null, sessionExpiresAt: null },
     });
+  }
+
+  /**
+   * Com beta activo, registo público exige pedido aprovado com o mesmo tipo.
+   */
+  async assertCanRegister(email: string, role: UserRole): Promise<void> {
+    const settings = await this.ensureSettings();
+    if (!settings.betaEnabled) return;
+
+    const testerType = roleToTesterType(role);
+    if (!testerType) {
+      throw new ForbiddenException(
+        'Durante o beta, só é possível criar conta de encarregado ou colégio.',
+      );
+    }
+
+    const normalized = normalizeEmail(email);
+    const row = await this.prisma.betaAccessRequest.findUnique({
+      where: { email: normalized },
+    });
+
+    if (!row || row.status !== BetaAccessStatus.APPROVED) {
+      throw new ForbiddenException(
+        'Precisa de acesso aprovado na comunidade beta antes de criar conta.',
+      );
+    }
+
+    if (row.testerType !== testerType) {
+      throw new ForbiddenException(
+        row.testerType === BetaTesterType.GUARDIAN
+          ? 'Este email foi aprovado para testar como encarregado. Crie conta na área de encarregado.'
+          : 'Este email foi aprovado para testar como colégio. Crie conta na área de instituição.',
+      );
+    }
   }
 
   private betaSecret(): string {
