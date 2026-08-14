@@ -8,6 +8,8 @@ import {
 } from '../../domain/repositories/school.repository';
 import { SchoolStatus } from '../../domain/school.enums';
 import { SchoolAccessAuthorizer } from '../services/school-access.authorizer';
+import { MailService } from '../../../mail/application/mail.service';
+import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
 
 export type SubmitSchoolForActivationInput = {
   schoolId: string;
@@ -29,6 +31,8 @@ export class SubmitSchoolForActivationUseCase
     private readonly schools: SchoolRepository,
     private readonly access: SchoolAccessAuthorizer,
     private readonly entitlements: SchoolEntitlementService,
+    private readonly mail: MailService,
+    private readonly recipients: MailRecipientsService,
   ) {}
 
   async execute(
@@ -60,6 +64,24 @@ export class SubmitSchoolForActivationUseCase
     });
 
     await this.schools.save(school);
+
+    const newStatus = school.status as SchoolStatus;
+    if (newStatus === SchoolStatus.PENDING_REVIEW) {
+      const owner = await this.recipients.schoolOwner(school.id);
+      if (owner) {
+        this.mail.sendSchoolSubmitted({
+          email: owner.email,
+          ownerName: owner.name,
+          schoolName: school.name,
+        });
+      }
+      this.mail.sendSchoolPendingReviewOps({
+        schoolName: school.name,
+        ownerEmail: owner?.email ?? '—',
+        schoolId: school.id,
+      });
+    }
+
     return { schoolId: school.id, status: school.status };
   }
 }

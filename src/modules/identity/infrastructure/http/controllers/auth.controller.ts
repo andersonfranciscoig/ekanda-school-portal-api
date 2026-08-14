@@ -10,6 +10,7 @@ import {
   Res,
   UnauthorizedException,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -18,6 +19,10 @@ import {
 } from '@nestjs/swagger';
 import { CookieOptions, Request, Response } from 'express';
 import { RegisterUserUseCase } from '../../../application/use-cases/register-user.use-case';
+import { StartRegisterUseCase } from '../../../application/use-cases/start-register.use-case';
+import { ConfirmRegisterUseCase } from '../../../application/use-cases/confirm-register.use-case';
+import { ForgotPasswordUseCase } from '../../../application/use-cases/forgot-password.use-case';
+import { ResetPasswordUseCase } from '../../../application/use-cases/reset-password.use-case';
 import { LoginUserUseCase } from '../../../application/use-cases/login-user.use-case';
 import { GetCurrentUserUseCase } from '../../../application/use-cases/get-current-user.use-case';
 import { TokenIssuer } from '../../../application/ports/token-issuer.port';
@@ -32,7 +37,11 @@ import {
   LoginHttpDto,
   RefreshHttpDto,
   RegisterHttpDto,
+  ConfirmRegisterHttpDto,
+  ForgotPasswordHttpDto,
+  ResetPasswordHttpDto,
 } from '../dto/auth.http-dto';
+import { ok } from '../../../../../shared/application/api-response';
 
 const ACCESS_COOKIE = 'ekanda_access';
 const REFRESH_COOKIE = 'ekanda_refresh';
@@ -83,20 +92,56 @@ function clearAuthCookies(res: Response) {
 export class AuthController {
   constructor(
     private readonly registerUser: RegisterUserUseCase,
+    private readonly startRegister: StartRegisterUseCase,
+    private readonly confirmRegister: ConfirmRegisterUseCase,
+    private readonly forgotPassword: ForgotPasswordUseCase,
+    private readonly resetPassword: ResetPasswordUseCase,
     private readonly loginUser: LoginUserUseCase,
     private readonly getCurrentUser: GetCurrentUserUseCase,
     private readonly platformBeta: PlatformBetaService,
     @Inject(TOKEN_ISSUER) private readonly tokenIssuer: TokenIssuer,
   ) {}
 
+  @Post('register/start')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({
+    summary: 'Iniciar registo — envia OTP por email',
+    description: 'Valida dados e envia código de 6 dígitos. Concluir em POST /auth/register/confirm.',
+  })
+  async registerStart(
+    @Body() dto: RegisterHttpDto,
+    @CurrentUser() actor?: AuthUser,
+  ) {
+    return ok(
+      await this.startRegister.execute({
+        ...dto,
+        actorRole: actor?.role,
+      }),
+      'Verification code sent',
+    );
+  }
+
+  @Post('register/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirmar registo com OTP' })
+  async registerConfirm(
+    @Body() dto: ConfirmRegisterHttpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken, user } =
+      await this.confirmRegister.execute(dto);
+    setAuthCookies(res, accessToken, refreshToken);
+    return ok({ user, accessToken, refreshToken }, 'Account created');
+  }
+
   @Post('register')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Registar novo utilizador',
+    summary: 'Registar (legado — apenas admin)',
     description:
-      'Público para GUARDIAN / SCHOOL_OWNER. ' +
-      'Criar EKANDA_ADMIN (ou SCHOOL_ADMIN) exige Bearer de um EKANDA_ADMIN.',
+      'Contas públicas: use /auth/register/start + /auth/register/confirm com OTP.',
   })
   async register(
     @Body() dto: RegisterHttpDto,
@@ -104,6 +149,15 @@ export class AuthController {
     @CurrentUser() actor?: AuthUser,
   ) {
     const role = dto.role ?? UserRole.GUARDIAN;
+    const isPublicRole =
+      role === UserRole.GUARDIAN || role === UserRole.SCHOOL_OWNER;
+
+    if (isPublicRole && !actor) {
+      throw new BadRequestException(
+        'Use POST /auth/register/start e /auth/register/confirm com o código OTP.',
+      );
+    }
+
     await this.platformBeta.assertCanRegister(dto.email, role);
 
     const { accessToken, refreshToken, user } =
@@ -115,6 +169,26 @@ export class AuthController {
 
     setAuthCookies(res, accessToken, refreshToken);
     return { user, accessToken, refreshToken };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Pedir link de recuperação de palavra-passe' })
+  async forgot(@Body() dto: ForgotPasswordHttpDto) {
+    return ok(
+      await this.forgotPassword.execute(dto),
+      'If the email exists, a reset link was sent',
+    );
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Redefinir palavra-passe com token do email' })
+  async reset(@Body() dto: ResetPasswordHttpDto) {
+    return ok(
+      await this.resetPassword.execute(dto),
+      'Password reset successfully',
+    );
   }
 
   @Post('login')

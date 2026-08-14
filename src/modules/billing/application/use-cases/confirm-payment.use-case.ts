@@ -14,6 +14,9 @@ import {
   SubscriptionRepository,
 } from '../../domain/repositories/billing.repositories';
 import { ConfirmSubscriptionPaymentService } from '../services/confirm-subscription-payment.service';
+import { MailService } from '../../../mail/application/mail.service';
+import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
 import {
   presentPayment,
   presentSubscription,
@@ -37,6 +40,9 @@ export class ConfirmPaymentUseCase
     @Inject(PLAN_REPOSITORY)
     private readonly plans: PlanRepository,
     private readonly confirmPayment: ConfirmSubscriptionPaymentService,
+    private readonly mail: MailService,
+    private readonly recipients: MailRecipientsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(input: ConfirmPaymentInput) {
@@ -62,6 +68,26 @@ export class ConfirmPaymentUseCase
         payment.externalTransactionId ??
         `EXP-${payment.id}`,
     });
+
+    if (!confirmed.alreadyProcessed) {
+      const school = await this.prisma.school.findUnique({
+        where: { id: confirmed.payment.schoolId },
+        select: { id: true, name: true },
+      });
+      const owner = school
+        ? await this.recipients.schoolOwner(school.id)
+        : null;
+      if (owner && school) {
+        const amount = confirmed.payment.amount?.amount ?? 0;
+        this.mail.sendPaymentConfirmed({
+          email: owner.email,
+          ownerName: owner.name,
+          schoolName: school.name,
+          planName: plan.name,
+          amountLabel: `${amount.toLocaleString('pt-AO')} Kz`,
+        });
+      }
+    }
 
     return {
       payment: presentPayment(confirmed.payment),

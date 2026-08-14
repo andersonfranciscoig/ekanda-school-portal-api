@@ -17,6 +17,16 @@ import {
   SchoolRepository,
 } from '../../../school/domain/repositories/school.repository';
 import { SchoolStatus } from '../../../school/domain/school.enums';
+import { MailService } from '../../../mail/application/mail.service';
+import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+
+const STATUS_LABEL: Partial<Record<SchoolStatus, string>> = {
+  [SchoolStatus.SUSPENDED]: 'Suspenso',
+  [SchoolStatus.EXPIRED]: 'Plano expirado',
+  [SchoolStatus.ACTIVE]: 'Activo',
+  [SchoolStatus.REJECTED]: 'Rejeitado',
+  [SchoolStatus.PENDING_REVIEW]: 'Em análise',
+};
 
 export type ChangeSchoolStatusInput = {
   schoolId: string;
@@ -55,6 +65,8 @@ export class ChangeSchoolStatusUseCase
     private readonly plans: PlanRepository,
     @Inject(AUDIT_LOGGER)
     private readonly audit: AuditLogger,
+    private readonly mail: MailService,
+    private readonly recipients: MailRecipientsService,
   ) {}
 
   async execute(input: ChangeSchoolStatusInput): Promise<ChangeSchoolStatusOutput> {
@@ -141,6 +153,23 @@ export class ChangeSchoolStatusUseCase
           source: 'ADMIN_GRANT',
         },
       });
+    }
+
+    if (
+      to === SchoolStatus.SUSPENDED ||
+      to === SchoolStatus.EXPIRED ||
+      (to !== from && to !== SchoolStatus.ACTIVE)
+    ) {
+      const owner = await this.recipients.schoolOwner(school.id);
+      if (owner) {
+        this.mail.sendSchoolStatusChanged({
+          email: owner.email,
+          ownerName: owner.name,
+          schoolName: school.name,
+          statusLabel: STATUS_LABEL[to] ?? to,
+          reason,
+        });
+      }
     }
 
     return {

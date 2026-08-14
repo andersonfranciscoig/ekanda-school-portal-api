@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../shared/infrastructure/persistence/prisma/prisma.service';
 import { SchoolHttpQueryService } from '../../school/infrastructure/http/school-http-query.service';
+import { MailService } from '../../mail/application/mail.service';
 
 const CONFIG_ID = 'default';
 
@@ -114,6 +115,7 @@ export class GestaoRolloutService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly schoolQueries: SchoolHttpQueryService,
+    private readonly mail: MailService,
   ) {}
 
   async getConfig(): Promise<GestaoModuleConfigDto> {
@@ -260,6 +262,12 @@ export class GestaoRolloutService {
       },
     });
 
+    this.mail.sendGestaoWaitlistReceived({
+      email: user.email,
+      ownerName: user.firstName,
+      schoolName: school.name,
+    });
+
     return presentEntry(entry);
   }
 
@@ -346,6 +354,19 @@ export class GestaoRolloutService {
           testUrl: updated.testUrl,
         },
       ]);
+      this.mail.sendGestaoWaitlistApproved({
+        email: updated.ownerEmail,
+        ownerName: updated.ownerName.split(' ')[0] ?? updated.ownerName,
+        schoolName: updated.schoolName,
+        testUrl: updated.testUrl,
+      });
+    } else {
+      this.mail.sendGestaoWaitlistRejected({
+        email: updated.ownerEmail,
+        ownerName: updated.ownerName.split(' ')[0] ?? updated.ownerName,
+        schoolName: updated.schoolName,
+        adminNote: updated.adminNote,
+      });
     }
 
     return presentEntry(updated);

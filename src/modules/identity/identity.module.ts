@@ -3,9 +3,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import type { StringValue } from 'ms';
+import { MailModule } from '../mail/mail.module';
 import { PlatformBetaModule } from '../platform-beta/platform-beta.module';
 import { USER_REPOSITORY } from './domain/repositories/user.repository';
 import { RegisterUserUseCase, PASSWORD_HASHER, TOKEN_ISSUER } from './application/use-cases/register-user.use-case';
+import { StartRegisterUseCase } from './application/use-cases/start-register.use-case';
+import { ConfirmRegisterUseCase } from './application/use-cases/confirm-register.use-case';
+import { ForgotPasswordUseCase } from './application/use-cases/forgot-password.use-case';
+import { ResetPasswordUseCase } from './application/use-cases/reset-password.use-case';
 import { LoginUserUseCase } from './application/use-cases/login-user.use-case';
 import { GetCurrentUserUseCase } from './application/use-cases/get-current-user.use-case';
 import { UpdateCurrentUserUseCase } from './application/use-cases/update-current-user.use-case';
@@ -21,6 +26,7 @@ import { UsersController } from './infrastructure/http/controllers/users.control
 
 @Module({
   imports: [
+    MailModule,
     forwardRef(() => PlatformBetaModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -40,6 +46,10 @@ import { UsersController } from './infrastructure/http/controllers/users.control
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     { provide: TOKEN_ISSUER, useClass: JwtTokenIssuer },
     RegisterUserUseCase,
+    StartRegisterUseCase,
+    ConfirmRegisterUseCase,
+    ForgotPasswordUseCase,
+    ResetPasswordUseCase,
     LoginUserUseCase,
     GetCurrentUserUseCase,
     UpdateCurrentUserUseCase,

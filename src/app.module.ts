@@ -14,6 +14,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { AdministrationModule } from './modules/administration/administration.module';
 import { GestaoRolloutModule } from './modules/gestao-rollout/gestao-rollout.module';
 import { PlatformBetaModule } from './modules/platform-beta/platform-beta.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PlatformBetaModule } from './modules/platform-beta/platform-beta.module
     BillingModule,
     GestaoRolloutModule,
     PlatformBetaModule,
+    MailModule,
     NotificationModule,
     AdministrationModule,
   ],

@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { SchoolModule } from '../school/school.module';
 import { IdentityModule } from '../identity/identity.module';
+import { MailModule } from '../mail/mail.module';
 import { SchoolEntitlementService } from './application/services/school-entitlement.service';
 import { ConfirmSubscriptionPaymentService } from './application/services/confirm-subscription-payment.service';
 import { WalletLedgerService } from './application/services/wallet-ledger.service';
@@ -43,7 +44,7 @@ import { PrismaSubscriptionRepository } from './infrastructure/persistence/prism
 import { paymentGatewayProvider } from './infrastructure/gateway/payment-gateway.provider';
 
 @Module({
-  imports: [forwardRef(() => SchoolModule), IdentityModule],
+  imports: [forwardRef(() => SchoolModule), IdentityModule, MailModule],
   controllers: [
     BillingController,
     SubscriptionsController,

@@ -36,6 +36,7 @@ export class User extends AggregateRoot {
     phone?: Phone | null;
     passwordHash: string;
     role?: UserRole;
+    emailVerified?: boolean;
   }): User {
     const now = new Date();
     const role = params.role ?? UserRole.GUARDIAN;
@@ -49,11 +50,24 @@ export class User extends AggregateRoot {
       params.passwordHash,
       role,
       true,
-      false,
+      params.emailVerified ?? false,
       false,
       now,
       now,
     );
+  }
+
+  /** Conta criada após OTP de email verificado. */
+  static createVerified(params: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: Email;
+    phone?: Phone | null;
+    passwordHash: string;
+    role?: UserRole;
+  }): User {
+    return User.create({ ...params, emailVerified: true });
   }
 
   static rehydrate(params: {
@@ -147,6 +161,11 @@ export class User extends AggregateRoot {
 
   deactivate(): void {
     this._isActive = false;
+    this._updatedAt = new Date();
+  }
+
+  updatePassword(passwordHash: string): void {
+    this._passwordHash = passwordHash;
     this._updatedAt = new Date();
   }
 

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
 import { BillingModule } from '../billing/billing.module';
+import { MailModule } from '../mail/mail.module';
 import { SchoolModule } from '../school/school.module';
 import { ApplicationsController } from './infrastructure/http/controllers/applications.controller';
 import { SchoolApplicationsController } from './infrastructure/http/controllers/school-applications.controller';
@@ -8,7 +9,7 @@ import { StudentsController } from './infrastructure/http/controllers/students.c
 import * as UseCases from './application/use-cases';
 
 @Module({
-  imports: [IdentityModule, BillingModule, SchoolModule],
+  imports: [IdentityModule, MailModule, BillingModule, SchoolModule],
   controllers: [
     ApplicationsController,
     SchoolApplicationsController,

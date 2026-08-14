@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Shift } from '@prisma/client';
 import { UseCase } from '../../../../shared/application/use-case';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
+import { MailService } from '../../../mail/application/mail.service';
+import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+import { applicationCode } from '../services/application.presenter';
 import { SchoolEntitlementService } from '../../../billing/application/services/school-entitlement.service';
 import {
   BusinessRuleViolationException,
@@ -25,6 +28,8 @@ export class CreateApplicationUseCase
   constructor(
     private readonly entitlements: SchoolEntitlementService,
     private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+    private readonly recipients: MailRecipientsService,
   ) {}
 
   async execute(input: CreateApplicationInput) {
@@ -79,7 +84,26 @@ export class CreateApplicationUseCase
           },
         },
       },
+      include: {
+        school: { select: { id: true, name: true } },
+        student: { select: { firstName: true, lastName: true } },
+        guardian: { select: { firstName: true, lastName: true } },
+      },
     });
+
+    const owner = await this.recipients.schoolOwner(input.schoolId);
+    if (owner) {
+      const studentName = `${application.student.firstName} ${application.student.lastName}`.trim();
+      const guardianName = `${application.guardian.firstName} ${application.guardian.lastName}`.trim();
+      this.mail.sendApplicationSubmittedSchool({
+        email: owner.email,
+        schoolName: application.school.name,
+        studentName,
+        guardianName,
+        applicationCode: applicationCode(application.id),
+        schoolId: application.school.id,
+      });
+    }
 
     return {
       id: application.id,

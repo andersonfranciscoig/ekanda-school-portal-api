@@ -10,6 +10,8 @@ import {
   SchoolRepository,
 } from '../../../school/domain/repositories/school.repository';
 import { SchoolStatus } from '../../../school/domain/school.enums';
+import { MailService } from '../../../mail/application/mail.service';
+import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
 
 export type ApproveSchoolInput = {
   schoolId: string;
@@ -31,6 +33,8 @@ export class ApproveSchoolUseCase
     private readonly schools: SchoolRepository,
     @Inject(AUDIT_LOGGER)
     private readonly audit: AuditLogger,
+    private readonly mail: MailService,
+    private readonly recipients: MailRecipientsService,
   ) {}
 
   async execute(input: ApproveSchoolInput): Promise<ApproveSchoolOutput> {
@@ -59,6 +63,16 @@ export class ApproveSchoolUseCase
         entityLabel: school.name,
       },
     });
+
+    const owner = await this.recipients.schoolOwner(school.id);
+    if (owner) {
+      this.mail.sendSchoolApproved({
+        email: owner.email,
+        ownerName: owner.name,
+        schoolName: school.name,
+        schoolSlug: school.slug.value,
+      });
+    }
 
     return { schoolId: school.id, status: school.status };
   }

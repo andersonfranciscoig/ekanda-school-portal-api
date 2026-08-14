@@ -9,9 +9,11 @@ import { PrismaService } from '../../../../shared/infrastructure/persistence/pri
 import { SchoolAccessAuthorizer } from '../../../school/application/services/school-access.authorizer';
 import {
   applicationDetailInclude,
+  applicationCode,
   DECIDABLE_APPLICATION_STATUSES,
   presentApplicationDetail,
 } from '../services/application.presenter';
+import { MailService } from '../../../mail/application/mail.service';
 
 export type ApproveApplicationInput = {
   actorUserId: string;
@@ -26,6 +28,7 @@ export class ApproveApplicationUseCase
   constructor(
     private readonly access: SchoolAccessAuthorizer,
     private readonly prisma: PrismaService,
+    private readonly mail: MailService,
   ) {}
 
   async execute(input: ApproveApplicationInput) {
@@ -61,6 +64,18 @@ export class ApproveApplicationUseCase
       where: { id: application.id },
       include: applicationDetailInclude,
     });
+
+    const code = applicationCode(detail.id);
+    const studentName = `${detail.student.firstName} ${detail.student.lastName}`.trim();
+    const guardianName = `${detail.guardian.firstName} ${detail.guardian.lastName}`.trim();
+    this.mail.sendApplicationAccepted({
+      email: detail.guardian.email,
+      guardianName,
+      studentName,
+      schoolName: detail.school.name,
+      applicationCode: code,
+    });
+
     return presentApplicationDetail(detail);
   }
 }

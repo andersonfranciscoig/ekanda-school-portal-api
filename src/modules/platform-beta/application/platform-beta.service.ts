@@ -12,6 +12,8 @@ import { BetaAccessStatus, BetaTesterType, Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
 import { UserRole } from '../../identity/domain/entities/user.entity';
 import { PrismaService } from '../../../shared/infrastructure/persistence/prisma/prisma.service';
+import { MailService } from '../../mail/application/mail.service';
+import { firstNameFromEmail } from '../../mail/application/mail-recipients.service';
 
 const SETTINGS_ID = 'default';
 const SESSION_TTL_SEC = 14 * 24 * 60 * 60; // 14 days
@@ -97,6 +99,7 @@ export class PlatformBetaService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
   ) {}
 
   async ensureSettings() {
@@ -268,6 +271,11 @@ export class PlatformBetaService {
           sessionExpiresAt: null,
         },
       });
+      this.mail.sendBetaRequestReceived({
+        email,
+        firstName: firstNameFromEmail(email),
+        testerTypeLabel: testerTypeLabel(testerType),
+      });
       return presentRequest(reopened);
     }
 
@@ -280,6 +288,11 @@ export class PlatformBetaService {
         phone,
         testerType,
       },
+    });
+    this.mail.sendBetaRequestReceived({
+      email,
+      firstName: firstNameFromEmail(email),
+      testerTypeLabel: testerTypeLabel(testerType),
     });
     return presentRequest(created);
   }
@@ -347,6 +360,22 @@ export class PlatformBetaService {
           : {}),
       },
     });
+
+    const firstName = firstNameFromEmail(updated.email);
+    if (input.status === 'APPROVED') {
+      this.mail.sendBetaApproved({
+        email: updated.email,
+        firstName,
+        testerTypeLabel: testerTypeLabel(updated.testerType),
+      });
+    } else {
+      this.mail.sendBetaRejected({
+        email: updated.email,
+        firstName,
+        adminNote: updated.adminNote,
+      });
+    }
+
     return presentRequest(updated);
   }
 

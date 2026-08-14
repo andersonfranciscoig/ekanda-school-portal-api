@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
+import { MailModule } from '../mail/mail.module';
 import { BillingModule } from '../billing/billing.module';
 import { SCHOOL_REPOSITORY } from './domain/repositories/school.repository';
 import { SCHOOL_LOCATION_REPOSITORY } from './domain/repositories/school-location.repository';
@@ -75,7 +76,7 @@ const schoolUseCases = [
 ];
 
 @Module({
-  imports: [IdentityModule, forwardRef(() => BillingModule)],
+  imports: [IdentityModule, MailModule, forwardRef(() => BillingModule)],
   controllers: [SchoolsController],
   providers: [
     { provide: SCHOOL_REPOSITORY, useClass: PrismaSchoolRepository },

@@ -66,3 +66,37 @@ export class RefreshHttpDto {
   @IsString()
   refreshToken?: string;
 }
+
+export class ConfirmRegisterHttpDto {
+  @ApiProperty({ example: 'maria@email.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({ example: '123456', description: 'Código OTP de 6 dígitos' })
+  @IsString()
+  @Matches(/^\d{6}$/, { message: 'OTP must be 6 digits' })
+  otp!: string;
+}
+
+export class ForgotPasswordHttpDto {
+  @ApiProperty({ example: 'maria@email.com' })
+  @IsEmail()
+  email!: string;
+}
+
+export class ResetPasswordHttpDto {
+  @ApiProperty({ example: 'maria@email.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({ description: 'Token do link de recuperação' })
+  @IsString()
+  @MinLength(16)
+  token!: string;
+
+  @ApiProperty({ minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  password!: string;
+}

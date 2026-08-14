@@ -10,6 +10,8 @@ import {
   SchoolRepository,
 } from '../../../school/domain/repositories/school.repository';
 import { SchoolStatus } from '../../../school/domain/school.enums';
+import { MailService } from '../../../mail/application/mail.service';
+import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
 
 export type RejectSchoolInput = {
   schoolId: string;
@@ -33,6 +35,8 @@ export class RejectSchoolUseCase
     private readonly schools: SchoolRepository,
     @Inject(AUDIT_LOGGER)
     private readonly audit: AuditLogger,
+    private readonly mail: MailService,
+    private readonly recipients: MailRecipientsService,
   ) {}
 
   async execute(input: RejectSchoolInput): Promise<RejectSchoolOutput> {
@@ -62,6 +66,16 @@ export class RejectSchoolUseCase
         entityLabel: school.name,
       },
     });
+
+    const owner = await this.recipients.schoolOwner(school.id);
+    if (owner) {
+      this.mail.sendSchoolRejected({
+        email: owner.email,
+        ownerName: owner.name,
+        schoolName: school.name,
+        reason: input.reason,
+      });
+    }
 
     return {
       schoolId: school.id,
