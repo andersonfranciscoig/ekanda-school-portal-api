@@ -42,6 +42,11 @@ enum SchoolStatus {
   REJECTED
 }
 
+enum InstitutionType {
+  PUBLIC
+  PRIVATE
+}
+
 enum SubscriptionStatus {
   PENDING
   ACTIVE
@@ -254,11 +259,12 @@ model UserPlatformRole {
 // ─────────────────────────────────────────────
 
 model School {
-  id                  String       @id @default(uuid()) @db.Uuid
+  id                  String          @id @default(uuid()) @db.Uuid
   name                String
-  slug                String       @unique
+  slug                String          @unique
   description         String?
-  status              SchoolStatus @default(DRAFT)
+  status              SchoolStatus    @default(DRAFT)
+  institutionType     InstitutionType @default(PRIVATE)
   phone               String?
   email               String?
   website             String?
@@ -296,6 +302,7 @@ model School {
 
   @@index([slug])
   @@index([status])
+  @@index([institutionType])
   @@map("schools")
 }
 
@@ -388,12 +395,13 @@ model SchoolService {
 /// Preços da School (MVP) — 1:1 com School.
 /// Fees por nível em SchoolPriceLevel; otherFees continua global.
 model SchoolPrice {
-  id        String   @id @default(uuid()) @db.Uuid
-  schoolId  String   @unique @db.Uuid
-  otherFees Decimal? @db.Decimal(12, 2)
-  currency  String   @default("AOA") @db.VarChar(8)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @unique @db.Uuid
+  otherFees   Decimal? @db.Decimal(12, 2)
+  currency    String   @default("AOA") @db.VarChar(8)
+  feesAreFree Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   school School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   levels SchoolPriceLevel[]

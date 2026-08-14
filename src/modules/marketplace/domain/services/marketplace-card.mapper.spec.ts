@@ -16,6 +16,7 @@ describe('marketplace-card.mapper', () => {
     description: 'Laboratórios equipados e turmas até 20 alunos.',
     logoUrl: 'https://cdn/logo.png',
     coverImageUrl: null,
+    institutionType: 'PRIVATE',
     createdAt: new Date('2026-07-28T09:14:00.000Z'),
     location: {
       province: 'Luanda',
@@ -44,6 +45,7 @@ describe('marketplace-card.mapper', () => {
     ],
     price: {
       currency: 'AOA',
+      feesAreFree: false,
       levels: [
         {
           levelId: 'creche',

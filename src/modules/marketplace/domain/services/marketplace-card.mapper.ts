@@ -165,7 +165,11 @@ export function toMarketplaceCard(
       ) / 10;
   }
 
-  const teachingType: MarketplaceTeachingType = 'PRIVATE';
+  const teachingType: MarketplaceTeachingType =
+    row.institutionType === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+  const feesAreFree =
+    Boolean(row.price?.feesAreFree) ||
+    (tuitionFrom != null && tuitionFrom === 0);
   const partial: Omit<MarketplaceSchoolCard, 'compatibility'> = {
     id: row.id,
     slug: row.slug,
@@ -183,9 +187,10 @@ export function toMarketplaceCard(
     distanceKm,
     rating,
     pricing: {
-      tuitionFrom,
-      enrollmentFrom,
+      tuitionFrom: feesAreFree ? 0 : tuitionFrom,
+      enrollmentFrom: feesAreFree ? 0 : enrollmentFrom,
       currency: row.price?.currency ?? 'AOA',
+      feesAreFree,
     },
     classes: activeClasses.map((c) => c.classLabel),
     services,

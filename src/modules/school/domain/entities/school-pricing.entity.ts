@@ -26,6 +26,7 @@ export type SchoolPricingSnapshot = {
   levels: SchoolPriceLevelSnapshot[];
   otherFees: number | null;
   currency: typeof SCHOOL_PRICES_CURRENCY;
+  feesAreFree: boolean;
 };
 
 export type FeeRangeInput = {
@@ -48,6 +49,7 @@ export class SchoolPricing {
     private _levels: SchoolPriceLevelSnapshot[],
     private _otherFees: number | null,
     private _currency: typeof SCHOOL_PRICES_CURRENCY,
+    private _feesAreFree: boolean,
   ) {}
 
   static create(params: {
@@ -56,13 +58,19 @@ export class SchoolPricing {
     levels: SchoolPriceLevelInput[];
     otherFees?: number | string | null;
     currency?: string | null;
+    feesAreFree?: boolean;
   }): SchoolPricing {
+    const feesAreFree = Boolean(params.feesAreFree);
+    const levels = feesAreFree
+      ? params.levels.map((level) => SchoolPricing.freeLevel(level.levelId))
+      : params.levels.map((level) => SchoolPricing.mapLevel(level));
     return new SchoolPricing(
       params.id,
       params.schoolId,
-      params.levels.map((level) => SchoolPricing.mapLevel(level)),
-      SchoolPricing.parseMoney(params.otherFees, 'otherFees'),
+      levels,
+      feesAreFree ? null : SchoolPricing.parseMoney(params.otherFees, 'otherFees'),
       SchoolPricing.assertCurrency(params.currency),
+      feesAreFree,
     );
   }
 
@@ -73,6 +81,7 @@ export class SchoolPricing {
       params.levels,
       params.otherFees,
       params.currency,
+      params.feesAreFree,
     );
   }
 
@@ -80,9 +89,19 @@ export class SchoolPricing {
     levels: SchoolPriceLevelInput[];
     otherFees?: number | string | null;
     currency?: string | null;
+    feesAreFree?: boolean;
   }): void {
-    this._levels = params.levels.map((level) => SchoolPricing.mapLevel(level));
-    this._otherFees = SchoolPricing.parseMoney(params.otherFees, 'otherFees');
+    const feesAreFree =
+      params.feesAreFree !== undefined
+        ? Boolean(params.feesAreFree)
+        : this._feesAreFree;
+    this._feesAreFree = feesAreFree;
+    this._levels = feesAreFree
+      ? params.levels.map((level) => SchoolPricing.freeLevel(level.levelId))
+      : params.levels.map((level) => SchoolPricing.mapLevel(level));
+    this._otherFees = feesAreFree
+      ? null
+      : SchoolPricing.parseMoney(params.otherFees, 'otherFees');
     this._currency = SchoolPricing.assertCurrency(params.currency);
   }
 
@@ -97,6 +116,7 @@ export class SchoolPricing {
       levels: this._levels.map((level) => ({ ...level })),
       otherFees: this._otherFees,
       currency: this._currency,
+      feesAreFree: this._feesAreFree,
     };
   }
 
@@ -106,6 +126,21 @@ export class SchoolPricing {
 
   get schoolId(): string {
     return this._schoolId;
+  }
+
+  get feesAreFree(): boolean {
+    return this._feesAreFree;
+  }
+
+  private static freeLevel(levelId: EducationLevelCode): SchoolPriceLevelSnapshot {
+    const zero = { min: 0, max: 0 };
+    return {
+      levelId,
+      enrollmentFee: { ...zero },
+      tuitionFee: { ...zero },
+      transportFee: { ...zero },
+      mealFee: { ...zero },
+    };
   }
 
   private static mapLevel(

@@ -44,6 +44,7 @@ const schoolMineInclude = {
       id: true,
       currency: true,
       otherFees: true,
+      feesAreFree: true,
       levels: {
         select: {
           levelId: true,
@@ -112,6 +113,7 @@ function presentPrice(
     schoolId: string;
     otherFees: Prisma.Decimal | number | null;
     currency: string;
+    feesAreFree?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
     levels: Array<{
@@ -134,6 +136,7 @@ function presentPrice(
     schoolId: price.schoolId,
     currency: price.currency,
     otherFees: toNumber(price.otherFees),
+    feesAreFree: Boolean(price.feesAreFree),
     createdAt: price.createdAt,
     updatedAt: price.updatedAt,
     levels: price.levels.map((level) => ({

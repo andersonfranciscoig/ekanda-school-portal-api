@@ -17,6 +17,19 @@ describe('parseConciergeTurnDeterministic', () => {
     expect(result.intent).toBe('ready_to_search');
   });
 
+  it('recognizes escola pública gratuita as precoMax=0 and tipo Pública', () => {
+    const result = parseConciergeTurnDeterministic(
+      'Procuro escola pública gratuita em Luanda para a 1ª classe sem transporte',
+      EMPTY_NEEDS,
+    );
+
+    expect(result.needsPatch.tipoEnsino).toBe('Pública');
+    expect(result.needsPatch.precoMax).toBe(0);
+    expect(result.needsPatch.provincia).toBe('Luanda');
+    expect(result.needsPatch.classe).toBe('1.ª classe');
+    expect(result.actions.shouldSearch).toBe(true);
+  });
+
   it('does not treat "perto de mim" as municipio and reads Luanda', () => {
     const result = parseConciergeTurnDeterministic(
       'Procuro um colégio perto de mim, estou em Luanda',

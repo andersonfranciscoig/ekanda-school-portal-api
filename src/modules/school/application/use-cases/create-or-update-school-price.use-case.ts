@@ -50,6 +50,7 @@ export type CreateOrUpdateSchoolPriceInput = {
   }>;
   otherFees?: number | string | null;
   currency?: string | null;
+  feesAreFree?: boolean;
   actorUserId: string;
 };
 
@@ -104,6 +105,7 @@ export class CreateOrUpdateSchoolPriceUseCase
       levels,
       otherFees: input.otherFees,
       currency: input.currency ?? SCHOOL_PRICES_CURRENCY,
+      feesAreFree: input.feesAreFree,
     });
 
     const persisted = await this.prices.create(pricing);
@@ -126,6 +128,7 @@ export class CreateOrUpdateSchoolPriceUseCase
       levels,
       otherFees: input.otherFees,
       currency: input.currency ?? SCHOOL_PRICES_CURRENCY,
+      feesAreFree: input.feesAreFree,
     });
 
     const persisted = await this.prices.update(pricing);

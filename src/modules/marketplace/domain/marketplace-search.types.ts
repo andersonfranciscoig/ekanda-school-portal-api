@@ -12,6 +12,7 @@ export type MarketplaceSort =
   | 'services_desc';
 
 export type MarketplaceTeachingType =
+  | 'PUBLIC'
   | 'PRIVATE'
   | 'SEMI_PRIVATE'
   | 'INTERNATIONAL';
@@ -53,6 +54,7 @@ export type MarketplaceSchoolCard = {
     tuitionFrom: number | null;
     enrollmentFrom: number | null;
     currency: string;
+    feesAreFree: boolean;
   };
   classes: string[];
   services: Array<{ id: string; label: string }>;
@@ -120,8 +122,9 @@ export const MARKETPLACE_TEACHING_TYPE_LABELS: Record<
   MarketplaceTeachingType,
   string
 > = {
-  PRIVATE: 'Privado',
-  SEMI_PRIVATE: 'Semi-privado',
+  PUBLIC: 'Pública',
+  PRIVATE: 'Privada',
+  SEMI_PRIVATE: 'Semi-privada',
   INTERNATIONAL: 'Internacional',
 };
 
@@ -132,6 +135,7 @@ export type MarketplaceSchoolRow = {
   description: string | null;
   logoUrl: string | null;
   coverImageUrl: string | null;
+  institutionType: 'PUBLIC' | 'PRIVATE';
   createdAt: Date;
   location: {
     province: string;
@@ -149,6 +153,7 @@ export type MarketplaceSchoolRow = {
   services: Array<{ serviceId: SchoolServiceCatalogId | string }>;
   price: {
     currency: string;
+    feesAreFree: boolean;
     levels: Array<{
       levelId: EducationLevelCode | string;
       enrollmentFeeMin: number | null;

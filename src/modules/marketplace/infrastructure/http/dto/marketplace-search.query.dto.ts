@@ -63,10 +63,10 @@ export class MarketplaceSearchQueryDto {
   fullDay?: boolean;
 
   @ApiPropertyOptional({
-    enum: ['PRIVATE', 'SEMI_PRIVATE', 'INTERNATIONAL'],
+    enum: ['PUBLIC', 'PRIVATE', 'SEMI_PRIVATE', 'INTERNATIONAL'],
   })
   @IsOptional()
-  @IsIn(['PRIVATE', 'SEMI_PRIVATE', 'INTERNATIONAL'])
+  @IsIn(['PUBLIC', 'PRIVATE', 'SEMI_PRIVATE', 'INTERNATIONAL'])
   teachingType?: string;
 
   @ApiPropertyOptional({

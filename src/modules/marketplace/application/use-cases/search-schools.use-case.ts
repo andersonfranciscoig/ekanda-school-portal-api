@@ -151,6 +151,7 @@ export class SearchSchoolsUseCase
   ): MarketplaceTeachingType | null {
     if (!value) return null;
     const allowed: MarketplaceTeachingType[] = [
+      'PUBLIC',
       'PRIVATE',
       'SEMI_PRIVATE',
       'INTERNATIONAL',
@@ -202,17 +203,19 @@ export class SearchSchoolsUseCase
       .map((c) => c.pricing.tuitionFrom)
       .filter((v): v is number => v != null);
 
+    const teachingTypeCounts = countMap(cards.map((c) => c.teachingType));
+
     return {
       provinces,
       municipalities,
       classLabels,
-      teachingTypes: [
-        {
-          value: 'PRIVATE',
-          label: MARKETPLACE_TEACHING_TYPE_LABELS.PRIVATE,
-          count: cards.length,
-        },
-      ],
+      teachingTypes: teachingTypeCounts.map((row) => ({
+        ...row,
+        label:
+          MARKETPLACE_TEACHING_TYPE_LABELS[
+            row.value as MarketplaceTeachingType
+          ] ?? row.value,
+      })),
       services,
       tuition: {
         min: tuitions.length ? Math.min(...tuitions) : null,

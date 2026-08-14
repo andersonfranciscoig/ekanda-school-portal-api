@@ -4,6 +4,7 @@ import {
   IsDate,
   IsEmail,
   IsInt,
+  IsIn,
   IsOptional,
   IsString,
   IsUrl,
@@ -125,6 +126,11 @@ export class CreateOrUpdateSchoolHttpDto {
   @IsString()
   @MaxLength(120)
   facebook?: string;
+
+  @ApiPropertyOptional({ enum: ['PUBLIC', 'PRIVATE'], example: 'PRIVATE' })
+  @IsOptional()
+  @IsIn(['PUBLIC', 'PRIVATE'])
+  institutionType?: 'PUBLIC' | 'PRIVATE';
 
   @ApiPropertyOptional()
   @IsOptional()

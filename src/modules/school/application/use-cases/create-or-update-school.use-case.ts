@@ -24,6 +24,7 @@ import {
   SchoolRepository,
 } from '../../domain/repositories/school.repository';
 import { SchoolSlug } from '../../domain/value-objects/school-slug.vo';
+import { InstitutionType } from '../../domain/school.enums';
 import { SchoolAccessAuthorizer } from '../services/school-access.authorizer';
 
 export type CreateOrUpdateSchoolInput = {
@@ -42,6 +43,7 @@ export type CreateOrUpdateSchoolInput = {
   approximateStudents?: number;
   instagram?: string;
   facebook?: string;
+  institutionType?: 'PUBLIC' | 'PRIVATE';
   province?: string;
   municipality?: string;
   neighborhood?: string;
@@ -154,6 +156,10 @@ export class CreateOrUpdateSchoolUseCase
       approximateStudents: input.approximateStudents ?? null,
       instagram: input.instagram ?? null,
       facebook: input.facebook ?? null,
+      institutionType:
+        input.institutionType === 'PUBLIC'
+          ? InstitutionType.PUBLIC
+          : InstitutionType.PRIVATE,
       location,
     });
 
@@ -226,6 +232,12 @@ export class CreateOrUpdateSchoolUseCase
         approximateStudents: input.approximateStudents,
         instagram: input.instagram,
         facebook: input.facebook,
+        institutionType:
+          input.institutionType === 'PUBLIC'
+            ? InstitutionType.PUBLIC
+            : input.institutionType === 'PRIVATE'
+              ? InstitutionType.PRIVATE
+              : undefined,
       },
       input.actorUserId,
     );

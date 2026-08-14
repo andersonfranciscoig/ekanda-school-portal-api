@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   EducationLevelCode as PrismaEducationLevelCode,
   GalleryKind,
+  InstitutionType,
   Prisma,
   SchoolServiceCatalogId as PrismaSchoolServiceCatalogId,
 } from '@prisma/client';
@@ -137,6 +138,10 @@ export class ListMyFavoriteSchoolsUseCase
             description: school.description,
             logoUrl: school.logoUrl,
             coverImageUrl: school.coverImageUrl,
+            institutionType:
+              school.institutionType === InstitutionType.PUBLIC
+                ? 'PUBLIC'
+                : 'PRIVATE',
             createdAt: school.createdAt,
             location: school.location
               ? {
@@ -159,6 +164,7 @@ export class ListMyFavoriteSchoolsUseCase
             price: school.price
               ? {
                   currency: school.price.currency,
+                  feesAreFree: Boolean(school.price.feesAreFree),
                   levels: school.price.levels.map((level) => ({
                     levelId: PRISMA_LEVEL_TO_DOMAIN[level.levelId],
                     enrollmentFeeMin: toNumber(level.enrollmentFeeMin),

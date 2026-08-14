@@ -35,6 +35,7 @@ type PriceRecord = {
   schoolId: string;
   otherFees: Prisma.Decimal | number | null;
   currency: string;
+  feesAreFree: boolean;
   levels: Array<{
     levelId: PrismaEducationLevelCode;
     enrollmentFeeMin: Prisma.Decimal | number | null;
@@ -78,6 +79,7 @@ export class PrismaSchoolPriceRepository implements SchoolPriceRepository {
           schoolId: snap.schoolId,
           otherFees: snap.otherFees,
           currency: snap.currency,
+          feesAreFree: snap.feesAreFree,
           levels: {
             create: snap.levels.map((level) => ({
               id: crypto.randomUUID(),
@@ -113,6 +115,7 @@ export class PrismaSchoolPriceRepository implements SchoolPriceRepository {
         data: {
           otherFees: snap.otherFees,
           currency: snap.currency,
+          feesAreFree: snap.feesAreFree,
         },
       });
 
@@ -195,6 +198,7 @@ export class PrismaSchoolPriceRepository implements SchoolPriceRepository {
       levels,
       otherFees: toNumber(record.otherFees),
       currency: (record.currency as typeof SCHOOL_PRICES_CURRENCY) || SCHOOL_PRICES_CURRENCY,
+      feesAreFree: Boolean(record.feesAreFree),
     });
   }
 }

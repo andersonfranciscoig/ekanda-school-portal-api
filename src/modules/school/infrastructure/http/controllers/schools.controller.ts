@@ -168,6 +168,7 @@ export class SchoolsController {
       approximateStudents: dto.approximateStudents,
       instagram: dto.instagram,
       facebook: dto.facebook,
+      institutionType: dto.institutionType,
       province: dto.province,
       municipality: dto.municipality,
       neighborhood: dto.neighborhood,
@@ -332,6 +333,7 @@ export class SchoolsController {
       levels: dto.levels,
       otherFees: dto.otherFees,
       currency: dto.currency,
+      feesAreFree: dto.feesAreFree,
     });
 
     res.status(

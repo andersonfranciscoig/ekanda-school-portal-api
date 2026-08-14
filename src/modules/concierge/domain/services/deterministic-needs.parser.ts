@@ -119,6 +119,14 @@ function isFlexibleBudgetText(text: string): boolean {
 }
 
 function extractPrice(text: string): number | null {
+  const n = normalize(text);
+  if (
+    /\b(gratuita?|gratis|custo\s*zero|sem\s*custo|ensino\s*gr[aá]tis|100\s*%\s*gratuita?)\b/.test(
+      n,
+    )
+  ) {
+    return 0;
+  }
   if (isFlexibleBudgetText(text)) {
     return 150000;
   }
@@ -315,7 +323,7 @@ function askFor(field: string): string {
     case 'classe':
       return 'Qual é a classe pretendida? (ex.: Pré-escolar, 5.ª classe)';
     case 'precoMax':
-      return 'Qual é o orçamento máximo mensal em Kz? (ou diga "qualquer valor")';
+      return 'Qual é o orçamento máximo mensal em Kz? (ou diga "qualquer valor" / "gratuita")';
     case 'transporte':
       return 'Precisa de transporte escolar? (sim / não / opcional)';
     default:
@@ -392,7 +400,8 @@ export function parseConciergeTurnDeterministic(
   if (/\bmanh[aã]\b/i.test(text)) patch.turno = 'Manhã';
   if (/\btarde\b/i.test(text)) patch.turno = 'Tarde';
 
-  if (/\bsemi[- ]?privado\b/i.test(text)) patch.tipoEnsino = 'Semi-privado';
+  if (/\bp[uú]blic[oa]s?\b/i.test(text)) patch.tipoEnsino = 'Pública';
+  else if (/\bsemi[- ]?privado\b/i.test(text)) patch.tipoEnsino = 'Semi-privado';
   else if (/\binternacional\b/i.test(text)) patch.tipoEnsino = 'Internacional';
   else if (/\bprivado\b/i.test(text)) patch.tipoEnsino = 'Privado';
 
@@ -449,9 +458,11 @@ export function parseConciergeTurnDeterministic(
   if (patch.classe) noted.push(patch.classe);
   if (patch.precoMax != null) {
     noted.push(
-      patch.precoMax >= 150000
-        ? 'orçamento flexível'
-        : `até ${patch.precoMax.toLocaleString('pt-AO')} Kz`,
+      patch.precoMax === 0
+        ? 'ensino gratuito'
+        : patch.precoMax >= 150000
+          ? 'orçamento flexível'
+          : `até ${patch.precoMax.toLocaleString('pt-AO')} Kz`,
     );
   }
   if (patch.transporte === true) noted.push('com transporte');

@@ -65,7 +65,7 @@ export const EMPTY_NEEDS: NeedsProfile = {
 };
 
 export const WELCOME_MESSAGE =
-  'Olá! Sou o assistente da Ekanda.\n\nEstou aqui para o ajudar a encontrar um colégio que faça sentido para a sua família — zona, classe, orçamento e o que for importante para vocês.\n\nPode escrever à vontade, como se estivesse a falar comigo. Por exemplo: «Procuro 5.ª classe em Talatona, até 80 mil.»';
+  'Olá! Sou o assistente da Ekanda.\n\nEstou aqui para o ajudar a encontrar escolas e colégios — instituições públicas e privadas — que façam sentido para a sua família: zona, classe, orçamento e o que for importante para vocês.\n\nPode escrever à vontade, como se estivesse a falar comigo. Por exemplo: «Procuro escola pública gratuita em Luanda» ou «5.ª classe em Talatona, até 80 mil.»';
 
 export const ALLOWED_VISIT_TIMES = [
   '09:00',
@@ -87,7 +87,7 @@ export function mergeNeeds(
   } as NeedsProfile;
 }
 
-/** Campos mínimos para disparar search. */
+/** Campos mínimos para disparar search. precoMax=0 = ensino gratuito / custo zero. */
 export function isNeedsReady(needs: NeedsProfile): boolean {
   const hasLocation =
     Boolean(needs.municipio?.trim()) || Boolean(needs.provincia?.trim());
@@ -95,7 +95,7 @@ export function isNeedsReady(needs: NeedsProfile): boolean {
     hasLocation &&
     Boolean(needs.classe?.trim()) &&
     needs.precoMax != null &&
-    needs.precoMax > 0 &&
+    needs.precoMax >= 0 &&
     needs.transporte !== null
   );
 }
@@ -105,7 +105,7 @@ export function nextMissingField(needs: NeedsProfile): string | null {
     Boolean(needs.municipio?.trim()) || Boolean(needs.provincia?.trim());
   if (!hasLocation) return 'municipio';
   if (!needs.classe?.trim()) return 'classe';
-  if (needs.precoMax == null || needs.precoMax <= 0) return 'precoMax';
+  if (needs.precoMax == null) return 'precoMax';
   if (needs.transporte === null) return 'transporte';
   return null;
 }
@@ -115,7 +115,11 @@ export function buildSessionTitle(needs: NeedsProfile): string {
   if (needs.classe) parts.push(`Colégio para ${needs.classe}`);
   if (needs.municipio) parts.push(needs.municipio);
   if (needs.precoMax != null) {
-    parts.push(`até ${needs.precoMax.toLocaleString('pt-AO')} Kz`);
+    parts.push(
+      needs.precoMax === 0
+        ? 'gratuito'
+        : `até ${needs.precoMax.toLocaleString('pt-AO')} Kz`,
+    );
   }
   return parts.length > 0 ? parts.join(' — ') : 'Nova procura';
 }
@@ -137,7 +141,8 @@ export function needsToMarketplaceFilters(needs: NeedsProfile): {
 
   let teachingType: string | undefined;
   const tipo = (needs.tipoEnsino ?? '').trim().toLowerCase();
-  if (tipo.includes('semi')) teachingType = 'SEMI_PRIVATE';
+  if (tipo.includes('públic') || tipo.includes('public')) teachingType = 'PUBLIC';
+  else if (tipo.includes('semi')) teachingType = 'SEMI_PRIVATE';
   else if (tipo.includes('internacional')) teachingType = 'INTERNATIONAL';
   else if (tipo.includes('privado')) teachingType = 'PRIVATE';
 

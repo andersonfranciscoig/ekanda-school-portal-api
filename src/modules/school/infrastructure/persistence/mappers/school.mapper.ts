@@ -7,7 +7,7 @@ import { SchoolClass } from '../../../domain/entities/school-class.entity';
 import { SchoolGalleryItem } from '../../../domain/entities/school-gallery-item.entity';
 import { SchoolLocation } from '../../../domain/entities/school-location.entity';
 import { SchoolServiceOffer } from '../../../domain/entities/school-service.entity';
-import { SchoolClassShift, GalleryKind, SchoolStatus } from '../../../domain/school.enums';
+import { SchoolClassShift, GalleryKind, SchoolStatus, InstitutionType } from '../../../domain/school.enums';
 import { SchoolSlug } from '../../../domain/value-objects/school-slug.vo';
 
 type PrismaSchoolRecord = {
@@ -16,6 +16,7 @@ type PrismaSchoolRecord = {
   slug: string;
   description: string | null;
   status: string;
+  institutionType?: string;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -56,6 +57,7 @@ type PrismaSchoolRecord = {
     id: string;
     otherFees: { toNumber(): number } | number | null;
     currency: string;
+    feesAreFree?: boolean;
     levels?: Array<{
       id: string;
       levelId: string;
@@ -112,6 +114,7 @@ export class SchoolMapper {
       slug: SchoolSlug.create(record.slug),
       description: record.description,
       status: record.status as SchoolStatus,
+      institutionType: (record.institutionType as InstitutionType) ?? InstitutionType.PRIVATE,
       phone: record.phone ? Phone.create(record.phone) : null,
       email: record.email ? Email.create(record.email) : null,
       website: record.website,
@@ -169,6 +172,7 @@ export class SchoolMapper {
       slug: school.slug.value,
       description: school.description,
       status: school.status,
+      institutionType: school.institutionType,
       phone: school.phone?.value ?? null,
       email: school.email?.value ?? null,
       website: school.website,

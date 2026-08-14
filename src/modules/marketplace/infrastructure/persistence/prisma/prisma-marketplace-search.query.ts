@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   EducationLevelCode as PrismaEducationLevelCode,
   GalleryKind,
+  InstitutionType,
   Prisma,
   SchoolServiceCatalogId as PrismaSchoolServiceCatalogId,
   SchoolStatus,
@@ -75,8 +76,11 @@ export class PrismaMarketplaceSearchQuery {
     filters: MarketplaceSearchFilters,
     now = new Date(),
   ): Promise<MarketplaceSchoolRow[]> {
-    // teachingType ainda não existe na BD — só PRIVATE é suportado.
-    if (filters.teachingType && filters.teachingType !== 'PRIVATE') {
+    // SEMI_PRIVATE / INTERNATIONAL ainda não existem na BD
+    if (
+      filters.teachingType === 'SEMI_PRIVATE' ||
+      filters.teachingType === 'INTERNATIONAL'
+    ) {
       return [];
     }
 
@@ -194,16 +198,36 @@ export class PrismaMarketplaceSearchQuery {
         classes: { some: { isActive: true, shift: Shift.DOUBLE } },
       });
     }
+    if (filters.teachingType === 'PUBLIC') {
+      and.push({ institutionType: InstitutionType.PUBLIC });
+    } else if (filters.teachingType === 'PRIVATE') {
+      and.push({ institutionType: InstitutionType.PRIVATE });
+    }
     if (filters.tuitionMax != null) {
-      and.push({
-        price: {
-          levels: {
-            some: {
-              tuitionFeeMin: { lte: filters.tuitionMax },
+      if (filters.tuitionMax === 0) {
+        and.push({
+          OR: [
+            { price: { feesAreFree: true } },
+            {
+              price: {
+                levels: {
+                  some: { tuitionFeeMin: { lte: 0 } },
+                },
+              },
+            },
+          ],
+        });
+      } else {
+        and.push({
+          price: {
+            levels: {
+              some: {
+                tuitionFeeMin: { lte: filters.tuitionMax },
+              },
             },
           },
-        },
-      });
+        });
+      }
     }
     for (const serviceId of filters.serviceIds) {
       and.push({
@@ -270,6 +294,8 @@ export class PrismaMarketplaceSearchQuery {
       description: row.description,
       logoUrl: row.logoUrl,
       coverImageUrl: row.coverImageUrl,
+      institutionType:
+        row.institutionType === InstitutionType.PUBLIC ? 'PUBLIC' : 'PRIVATE',
       createdAt: row.createdAt,
       location: row.location
         ? {
@@ -292,6 +318,7 @@ export class PrismaMarketplaceSearchQuery {
       price: row.price
         ? {
             currency: row.price.currency,
+            feesAreFree: Boolean(row.price.feesAreFree),
             levels: row.price.levels.map((level) => ({
               levelId: PRISMA_LEVEL_TO_DOMAIN[level.levelId],
               enrollmentFeeMin: toNumber(level.enrollmentFeeMin),

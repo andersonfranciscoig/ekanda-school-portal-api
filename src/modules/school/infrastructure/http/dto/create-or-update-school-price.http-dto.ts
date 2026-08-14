@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsIn,
   IsOptional,
@@ -80,4 +81,12 @@ export class CreateOrUpdateSchoolPriceHttpDto {
   @IsString()
   @IsIn([SCHOOL_PRICES_CURRENCY])
   currency?: typeof SCHOOL_PRICES_CURRENCY;
+
+  @ApiPropertyOptional({
+    description: 'When true, all fees are treated as free (zeros) for public institutions',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  feesAreFree?: boolean;
 }

@@ -8,6 +8,11 @@ export enum SchoolStatus {
   REJECTED = 'REJECTED',
 }
 
+export enum InstitutionType {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
 export enum SchoolMembershipRole {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',

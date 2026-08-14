@@ -4,7 +4,7 @@ import {
 } from '../../../../shared/domain/exceptions/domain.exception';
 import { Email } from '../../../../shared/domain/value-objects/email.vo';
 import { Phone } from '../../../../shared/domain/value-objects/phone.vo';
-import { SchoolStatus } from '../school.enums';
+import { SchoolStatus, InstitutionType } from '../school.enums';
 import { SchoolSlug } from '../value-objects/school-slug.vo';
 import { SchoolLocation } from '../entities/school-location.entity';
 import { SchoolClass } from '../entities/school-class.entity';
@@ -35,6 +35,7 @@ export class School extends AggregateRoot {
     private _slug: SchoolSlug,
     private _description: string | null,
     private _status: SchoolStatus,
+    private _institutionType: InstitutionType,
     private _phone: Phone | null,
     private _email: Email | null,
     private _website: string | null,
@@ -65,6 +66,7 @@ export class School extends AggregateRoot {
     slug: SchoolSlug;
     ownerUserId: string;
     description?: string | null;
+    institutionType?: InstitutionType;
     phone?: Phone | null;
     email?: Email | null;
     website?: string | null;
@@ -99,6 +101,7 @@ export class School extends AggregateRoot {
       params.slug,
       description,
       SchoolStatus.DRAFT,
+      params.institutionType ?? InstitutionType.PRIVATE,
       params.phone ?? null,
       params.email ?? null,
       params.website?.trim() || null,
@@ -128,6 +131,7 @@ export class School extends AggregateRoot {
     slug: SchoolSlug;
     description: string | null;
     status: SchoolStatus;
+    institutionType: InstitutionType;
     phone: Phone | null;
     email: Email | null;
     website: string | null;
@@ -155,6 +159,7 @@ export class School extends AggregateRoot {
       params.slug,
       params.description,
       params.status,
+      params.institutionType,
       params.phone,
       params.email,
       params.website,
@@ -196,6 +201,10 @@ export class School extends AggregateRoot {
 
   get status(): SchoolStatus {
     return this._status;
+  }
+
+  get institutionType(): InstitutionType {
+    return this._institutionType;
   }
 
   get phone(): Phone | null {
@@ -299,6 +308,7 @@ export class School extends AggregateRoot {
       approximateStudents?: number | null;
       instagram?: string | null;
       facebook?: string | null;
+      institutionType?: InstitutionType;
     },
     actorUserId?: string,
   ): void {
@@ -336,6 +346,9 @@ export class School extends AggregateRoot {
     if (params.facebook !== undefined) {
       this._facebook = School.normalizeOptionalText(params.facebook, 120);
     }
+    if (params.institutionType !== undefined) {
+      this._institutionType = params.institutionType;
+    }
     this.touch();
     if (actorUserId) {
       this.addDomainEvent(new SchoolUpdatedEvent(this._id, actorUserId));
@@ -349,6 +362,7 @@ export class School extends AggregateRoot {
       slug: this._slug.value,
       description: this._description,
       status: this._status,
+      institutionType: this._institutionType,
       phone: this._phone?.value ?? null,
       email: this._email?.value ?? null,
       website: this._website,
