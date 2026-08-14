@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { UseCase } from '../../../../shared/application/use-case';
 import { BusinessRuleViolationException } from '../../../../shared/domain/exceptions/domain.exception';
+import { EMPTY_NEEDS } from '../../../concierge/domain/concierge.types';
+import { OllamaConciergeClient } from '../../../concierge/infrastructure/ollama/ollama-concierge.client';
 import {
   MarketplaceSchoolCard,
   MarketplaceSearchFilters,
@@ -21,17 +23,32 @@ const COMPARE_FILTERS: MarketplaceSearchFilters = {
 
 export type CompareSchoolsInput = {
   ids?: string | string[];
+  /** Preferências opcionais (ex.: orçamento) para contextualizar a IA. */
+  tuitionMax?: number;
+  municipality?: string;
+  province?: string;
+};
+
+export type CompareSchoolExplanation = {
+  schoolId: string;
+  text: string;
 };
 
 export type CompareSchoolsResult = {
   items: MarketplaceSchoolCard[];
+  /** Explicações IA grounded nos factos reais (pode estar vazio se Ollama off). */
+  explanations: CompareSchoolExplanation[];
+  compareSummary: string | null;
 };
 
 @Injectable()
 export class CompareSchoolsUseCase
   implements UseCase<CompareSchoolsInput, CompareSchoolsResult>
 {
-  constructor(private readonly query: PrismaMarketplaceSearchQuery) {}
+  constructor(
+    private readonly query: PrismaMarketplaceSearchQuery,
+    private readonly ollama: OllamaConciergeClient,
+  ) {}
 
   async execute(input: CompareSchoolsInput): Promise<CompareSchoolsResult> {
     const ids = this.parseIds(input.ids);
@@ -50,7 +67,41 @@ export class CompareSchoolsUseCase
       })
       .filter((card): card is MarketplaceSchoolCard => Boolean(card));
 
-    return { items };
+    const needs = {
+      ...EMPTY_NEEDS,
+      ...(input.municipality?.trim()
+        ? { municipio: input.municipality.trim() }
+        : {}),
+      ...(input.province?.trim() ? { provincia: input.province.trim() } : {}),
+      ...(typeof input.tuitionMax === 'number' && Number.isFinite(input.tuitionMax)
+        ? { precoMax: input.tuitionMax }
+        : {}),
+    };
+
+    const ai = await this.ollama.explainMatches(
+      needs,
+      items.map((school) => ({
+        schoolId: school.id,
+        name: school.name,
+        score: school.compatibility.score,
+        factualReasons: school.compatibility.reasons,
+        municipality: school.location?.municipality ?? null,
+        province: school.location?.province ?? null,
+        tuitionFrom: school.pricing.tuitionFrom,
+        feesAreFree: Boolean(school.pricing.feesAreFree),
+        services: school.services.map((s) => s.label),
+        classes: school.classes,
+        ratingAverage: school.rating.average,
+        vacanciesTotal: school.vacanciesTotal,
+        teachingType: school.teachingType,
+      })),
+    );
+
+    return {
+      items,
+      explanations: ai.explanations,
+      compareSummary: ai.compareSummary,
+    };
   }
 
   private parseIds(raw?: string | string[]): string[] {

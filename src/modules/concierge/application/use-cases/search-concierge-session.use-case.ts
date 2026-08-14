@@ -8,9 +8,8 @@ import {
   buildSessionTitle,
   needsToMarketplaceFilters,
 } from '../../domain/concierge.types';
-import {
-  presentMessage,
-} from '../../infrastructure/http/concierge.presenter';
+import { presentMessage } from '../../infrastructure/http/concierge.presenter';
+import { OllamaConciergeClient } from '../../infrastructure/ollama/ollama-concierge.client';
 import { ConciergeSessionStore } from '../services/concierge-session.store';
 
 export type SearchConciergeSessionInput = {
@@ -25,6 +24,8 @@ type Match = {
   school: MarketplaceSchoolCard;
   score: number;
   motivos: string[];
+  /** Explicação em linguagem natural (IA grounded nos factos reais). */
+  explicacao: string | null;
 };
 
 @Injectable()
@@ -34,6 +35,7 @@ export class SearchConciergeSessionUseCase
   constructor(
     private readonly store: ConciergeSessionStore,
     private readonly marketplaceSearch: SearchSchoolsUseCase,
+    private readonly ollama: OllamaConciergeClient,
   ) {}
 
   async execute(input: SearchConciergeSessionInput) {
@@ -89,19 +91,20 @@ export class SearchConciergeSessionUseCase
       }
     }
 
-    const resultIds = matches.items.map((m) => m.school.id);
+    const enriched = await this.enrichWithAiExplanations(needs, matches.items);
+    const resultIds = enriched.items.map((m) => m.school.id);
     const title = buildSessionTitle(needs);
 
     const assistantMessages = [];
 
-    if (matches.items.length === 0) {
+    if (enriched.items.length === 0) {
       assistantMessages.push(
         await this.store.addMessage({
           sessionId: session.id,
           role: 'assistant',
           kind: ConciergeMessageKind.empty,
           content:
-            'Não encontrámos colégios com estes critérios. Pode flexibilizar o orçamento, o município ou os serviços?',
+            'Não encontrámos instituições com estes critérios. Pode flexibilizar o orçamento, o município ou os serviços?',
         }),
       );
     } else {
@@ -110,16 +113,30 @@ export class SearchConciergeSessionUseCase
           sessionId: session.id,
           role: 'assistant',
           kind: ConciergeMessageKind.text,
-          content: `Analisámos ${totalAnalisados} colégios disponíveis${
+          content: `Analisámos ${totalAnalisados} instituições disponíveis${
             relaxed ? ' (com critérios flexibilizados)' : ''
-          }.`,
+          }. A compatibilidade (%) é calculada com dados reais do perfil de cada escola.`,
         }),
         await this.store.addMessage({
           sessionId: session.id,
           role: 'assistant',
           kind: ConciergeMessageKind.text,
-          content: `Encontrámos ${matches.items.length} opções que correspondem ao seu perfil.`,
+          content: `Encontrámos ${enriched.items.length} opções que correspondem ao seu perfil.`,
         }),
+      );
+
+      if (enriched.compareSummary) {
+        assistantMessages.push(
+          await this.store.addMessage({
+            sessionId: session.id,
+            role: 'assistant',
+            kind: ConciergeMessageKind.text,
+            content: enriched.compareSummary,
+          }),
+        );
+      }
+
+      assistantMessages.push(
         await this.store.addMessage({
           sessionId: session.id,
           role: 'assistant',
@@ -139,7 +156,7 @@ export class SearchConciergeSessionUseCase
 
     const updated = await this.store.updateNeeds(session.id, needs, {
       phase:
-        matches.items.length > 0
+        enriched.items.length > 0
           ? ConciergePhase.results
           : ConciergePhase.adjusting,
       title,
@@ -149,13 +166,59 @@ export class SearchConciergeSessionUseCase
     return {
       totalAnalisados,
       relaxed,
-      matches: matches.items,
+      matches: enriched.items,
+      compareSummary: enriched.compareSummary,
       assistantMessages: assistantMessages.map(presentMessage),
       session: {
         phase: updated.phase,
         resultIds: updated.resultIds,
         title: updated.title,
       },
+    };
+  }
+
+  private async enrichWithAiExplanations(
+    needs: NeedsProfile,
+    items: Match[],
+  ): Promise<{
+    items: Match[];
+    compareSummary: string | null;
+  }> {
+    if (!items.length) {
+      return { items: [], compareSummary: null };
+    }
+
+    const ai = await this.ollama.explainMatches(
+      needs,
+      items.map((m) => ({
+        schoolId: m.school.id,
+        name: m.school.name,
+        score: m.score,
+        factualReasons: m.motivos,
+        municipality: m.school.location?.municipality ?? null,
+        province: m.school.location?.province ?? null,
+        tuitionFrom: m.school.pricing.tuitionFrom,
+        feesAreFree: Boolean(m.school.pricing.feesAreFree),
+        services: m.school.services.map((s) => s.label),
+        classes: m.school.classes,
+        ratingAverage: m.school.rating.average,
+        vacanciesTotal: m.school.vacanciesTotal,
+        teachingType: m.school.teachingType,
+      })),
+    );
+
+    const byId = new Map(
+      ai.explanations.map((e) => [e.schoolId, e.text] as const),
+    );
+
+    const withText = items.map((m) => ({
+      ...m,
+      explicacao: byId.get(m.school.id) ?? null,
+    }));
+
+    return {
+      items: withText,
+      compareSummary: ai.compareSummary,
     };
   }
 
@@ -175,6 +238,7 @@ export class SearchConciergeSessionUseCase
       school,
       score: school.compatibility.score,
       motivos: this.buildMotivos(school, needs),
+      explicacao: null,
     }));
 
     return {
@@ -193,7 +257,11 @@ export class SearchConciergeSessionUseCase
       school.pricing.tuitionFrom != null &&
       school.pricing.tuitionFrom <= needs.precoMax
     ) {
-      motivos.push('Está dentro do seu orçamento');
+      motivos.push(
+        needs.precoMax === 0 || school.pricing.feesAreFree
+          ? 'Ensino gratuito / dentro do orçamento'
+          : 'Está dentro do seu orçamento',
+      );
     }
     if (
       needs.municipio &&
@@ -212,13 +280,24 @@ export class SearchConciergeSessionUseCase
     if (
       needs.classe &&
       school.classes.some((c) =>
-        c.toLowerCase().includes(needs.classe.toLowerCase().replace(' classe', '')),
+        c
+          .toLowerCase()
+          .includes(needs.classe.toLowerCase().replace(' classe', '')),
       )
     ) {
       motivos.push(`Tem vagas para a ${needs.classe}`);
     }
     if (school.vacanciesTotal > 0) {
       motivos.push('Tem vaga disponível');
+    }
+    if (needs.tipoEnsino) {
+      const tipo = needs.tipoEnsino.toLowerCase();
+      if (
+        (tipo.includes('públic') && school.teachingType === 'PUBLIC') ||
+        (tipo.includes('privado') && school.teachingType === 'PRIVATE')
+      ) {
+        motivos.push(`Tipo de instituição: ${needs.tipoEnsino}`);
+      }
     }
     return motivos.slice(0, 4);
   }

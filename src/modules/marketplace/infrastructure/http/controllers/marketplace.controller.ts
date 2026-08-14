@@ -62,10 +62,15 @@ export class MarketplaceController {
 
   @Get('compare')
   @ApiOperation({
-    summary: 'Comparar 2 ou 3 colégios públicos lado a lado',
+    summary: 'Comparar 2 ou 3 instituições públicas lado a lado (com explicação IA grounded)',
   })
   async compare(@Query() query: MarketplaceCompareQueryDto) {
-    const result = await this.compareSchools.execute({ ids: query.ids });
+    const result = await this.compareSchools.execute({
+      ids: query.ids,
+      tuitionMax: query.tuitionMax,
+      municipality: query.municipality,
+      province: query.province,
+    });
     return ok(result, 'Schools compared');
   }
 

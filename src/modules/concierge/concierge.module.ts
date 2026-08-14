@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
 import { MarketplaceModule } from '../marketplace/marketplace.module';
 import { SchoolModule } from '../school/school.module';
+import { AiModule } from '../ai/ai.module';
 import { ConciergeSessionStore } from './application/services/concierge-session.store';
 import { CreateConciergeSessionUseCase } from './application/use-cases/create-concierge-session.use-case';
 import {
@@ -23,14 +24,12 @@ import {
   ScheduleConciergeVisitUseCase,
 } from './application/use-cases/schedule-concierge-visit.use-case';
 import { ConciergeController } from './infrastructure/http/controllers/concierge.controller';
-import { OllamaConciergeClient } from './infrastructure/ollama/ollama-concierge.client';
 
 @Module({
-  imports: [IdentityModule, MarketplaceModule, SchoolModule],
+  imports: [IdentityModule, MarketplaceModule, SchoolModule, AiModule],
   controllers: [ConciergeController],
   providers: [
     ConciergeSessionStore,
-    OllamaConciergeClient,
     CreateConciergeSessionUseCase,
     ListConciergeSessionsUseCase,
     GetConciergeSessionUseCase,

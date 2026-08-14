@@ -14,6 +14,28 @@ export type ConciergeChatTurn = {
   content: string;
 };
 
+/** Factos reais de um match — a IA só pode redigir a partir disto. */
+export type GroundedMatchForExplain = {
+  schoolId: string;
+  name: string;
+  score: number;
+  factualReasons: string[];
+  municipality: string | null;
+  province: string | null;
+  tuitionFrom: number | null;
+  feesAreFree: boolean;
+  services: string[];
+  classes: string[];
+  ratingAverage: number;
+  vacanciesTotal: number;
+  teachingType: string;
+};
+
+export type MatchExplanationResult = {
+  explanations: Array<{ schoolId: string; text: string }>;
+  compareSummary: string | null;
+};
+
 @Injectable()
 export class OllamaConciergeClient {
   private readonly logger = new Logger(OllamaConciergeClient.name);
@@ -111,9 +133,9 @@ export class OllamaConciergeClient {
         message?: { content?: string };
       };
       const content = payload.message?.content ?? '';
-      const parsed = this.parseJsonContent(content);
+      const parsed = this.parseJsonObject(content);
       return this.mergeWithDeterministic(
-        this.normalizeLlmResult(parsed, needs),
+        this.normalizeLlmResult(parsed as ConciergeLlmResult, needs),
         deterministic,
         needs,
       );
@@ -125,6 +147,132 @@ export class OllamaConciergeClient {
       );
       return deterministic;
     }
+  }
+
+  /**
+   * Explica matches com IA grounded: score/% e factos vêm do marketplace;
+   * a IA só redige texto — nunca inventa preços, serviços ou nomes.
+   */
+  async explainMatches(
+    needs: NeedsProfile,
+    matches: GroundedMatchForExplain[],
+  ): Promise<MatchExplanationResult> {
+    const empty: MatchExplanationResult = {
+      explanations: [],
+      compareSummary: null,
+    };
+    if (!matches.length || !this.isEnabled()) return empty;
+
+    const baseUrl = this.config
+      .get<string>('OLLAMA_BASE_URL')
+      ?.trim()
+      .replace(/\/$/, '');
+    if (!baseUrl) return empty;
+
+    const model =
+      this.config.get<string>('OLLAMA_MODEL')?.trim() || 'gpt-oss:120b';
+    const apiKey = this.getApiKey();
+    const timeoutMs = Number(this.config.get('OLLAMA_TIMEOUT_MS') ?? 90000);
+    const allowedIds = new Set(matches.map((m) => m.schoolId));
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+      const response = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          stream: false,
+          format: 'json',
+          options: { temperature: 0.4, top_p: 0.85 },
+          messages: [
+            { role: 'system', content: this.buildExplainSystemPrompt() },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                familyNeeds: needs,
+                matches,
+                instruction:
+                  'Para cada escola, escreve 1–2 frases a explicar o match usando APENAS os factos e motivos fornecidos. Não inventes dados. Inclui compareSummary se houver 2+ escolas.',
+              }),
+            },
+          ],
+        }),
+      });
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(
+          `Ollama HTTP ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+        );
+      }
+
+      const payload = (await response.json()) as {
+        message?: { content?: string };
+      };
+      const raw = this.parseJsonObject(payload.message?.content ?? '') as {
+        explanations?: Array<{ schoolId?: string; text?: string }>;
+        compareSummary?: string | null;
+      };
+
+      const explanations = (raw.explanations ?? [])
+        .filter(
+          (e) =>
+            typeof e.schoolId === 'string' &&
+            allowedIds.has(e.schoolId) &&
+            typeof e.text === 'string' &&
+            e.text.trim().length > 0,
+        )
+        .map((e) => ({
+          schoolId: e.schoolId!,
+          text: e.text!.trim().slice(0, 500),
+        }));
+
+      const compareSummary =
+        typeof raw.compareSummary === 'string' && raw.compareSummary.trim()
+          ? raw.compareSummary.trim().slice(0, 800)
+          : null;
+
+      return { explanations, compareSummary };
+    } catch (error) {
+      this.logger.warn(
+        `Ollama explainMatches failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return empty;
+    }
+  }
+
+  private buildExplainSystemPrompt(): string {
+    return `És o Ekanda Concierge — redactor de explicações de match (Angola).
+
+## Regras absolutas (dados 100% reais)
+- Os números de compatibilidade (score), preços, serviços, classes, localização e avaliações JÁ estão nos factos.
+- NUNCA inventes preços, distâncias, serviços, vagas, avaliações ou nomes de escolas.
+- NUNCA alters o score. Podes citar a % se estiver nos factos.
+- Só podes mencionar o que aparece em factualReasons ou nos campos facts de cada match.
+- Se um dado não estiver presente, não o mentions.
+
+## Estilo
+- Português de Angola, claro e caloroso.
+- 1–2 frases por escola em "text".
+- compareSummary (opcional): 2–3 frases a comparar as opções com base nos factos.
+
+## Formato
+Responde APENAS JSON:
+{
+  "explanations": [{ "schoolId": string, "text": string }],
+  "compareSummary": string|null
+}`;
   }
 
   private buildSystemPrompt(awaiting: string | null): string {
@@ -237,15 +385,18 @@ Responde APENAS JSON válido (sem texto fora do JSON):
     return Number.isFinite(n) ? n : fallback;
   }
 
-  private parseJsonContent(content: string): ConciergeLlmResult {
+  private parseJsonObject(content: string): Record<string, unknown> {
     const trimmed = content.trim();
     try {
-      return JSON.parse(trimmed) as ConciergeLlmResult;
+      return JSON.parse(trimmed) as Record<string, unknown>;
     } catch {
       const start = trimmed.indexOf('{');
       const end = trimmed.lastIndexOf('}');
       if (start >= 0 && end > start) {
-        return JSON.parse(trimmed.slice(start, end + 1)) as ConciergeLlmResult;
+        return JSON.parse(trimmed.slice(start, end + 1)) as Record<
+          string,
+          unknown
+        >;
       }
       throw new Error('LLM response was not valid JSON');
     }

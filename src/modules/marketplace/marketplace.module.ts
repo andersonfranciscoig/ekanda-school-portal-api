@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
+import { AiModule } from '../ai/ai.module';
 import { SearchSchoolsUseCase } from './application/use-cases/search-schools.use-case';
 import { AddSchoolToFavoritesUseCase } from './application/use-cases/add-school-to-favorites.use-case';
 import { CompareSchoolsUseCase } from './application/use-cases/compare-schools.use-case';
@@ -20,7 +21,7 @@ import { PrismaMarketplaceSearchQuery } from './infrastructure/persistence/prism
 import { PrismaReviewRepository } from './infrastructure/persistence/prisma/prisma-review.repository';
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, AiModule],
   controllers: [MarketplaceController],
   providers: [
     PrismaMarketplaceSearchQuery,
