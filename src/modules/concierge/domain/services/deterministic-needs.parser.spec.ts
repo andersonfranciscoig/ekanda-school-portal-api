@@ -42,6 +42,37 @@ describe('parseConciergeTurnDeterministic', () => {
     expect(result.reply.toLowerCase()).not.toContain('anotei mim');
   });
 
+  it('searches public free schools in Luanda without asking for class', () => {
+    const result = parseConciergeTurnDeterministic(
+      'Procuro escola pública gratuita em Luanda',
+      EMPTY_NEEDS,
+    );
+    expect(result.needsPatch.provincia).toBe('Luanda');
+    expect(result.needsPatch.tipoEnsino).toBe('Pública');
+    expect(result.needsPatch.precoMax).toBe(0);
+    expect(result.needsPatch.browseWide).toBe(true);
+    expect(result.actions.shouldSearch).toBe(true);
+    expect(result.reply.toLowerCase()).not.toMatch(/classe/);
+  });
+
+  it('answers distance questions without re-searching', () => {
+    const base = {
+      ...EMPTY_NEEDS,
+      provincia: 'Luanda',
+      browseWide: true,
+      precoMax: 0,
+      transporte: false,
+      tipoEnsino: 'Pública',
+    };
+    const result = parseConciergeTurnDeterministic(
+      'de acordo a minha localizao quantos km tem de distancia',
+      base,
+    );
+    expect(result.actions.shouldSearch).toBe(false);
+    expect(result.intent).toBe('clarify');
+    expect(result.reply.toLowerCase()).toMatch(/dist/);
+  });
+
   it('treats "Lista dos colegios de Luanda" as province-wide browse without asking class', () => {
     const result = parseConciergeTurnDeterministic(
       'Lista dos os colegios de Luanda',

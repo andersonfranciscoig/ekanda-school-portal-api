@@ -187,6 +187,52 @@ function isBrowseListIntent(text: string): boolean {
   );
 }
 
+/** Pergunta sobre distância / km às opções já mostradas. */
+function isDistanceQuestion(text: string): boolean {
+  const n = normalize(text);
+  return (
+    /\bquantos?\s*(km|quilometros?)\b/.test(n) ||
+    /\b(a\s+)?quantos?\s+(km|quilometros?)\b/.test(n) ||
+    /\bdistancia\b/.test(n) ||
+    /\bkm\s+de\s+distancia\b/.test(n) ||
+    /\bquao\s+longe\b/.test(n) ||
+    /\bproximo\s+de\s+(mim|minha\s+localizacao)\b/.test(n) ||
+    /\bde\s+acordo\s+(com\s+)?(a\s+)?minha\s+localizacao\b/.test(n)
+  );
+}
+
+/** Pedido de procura com zona + filtros claros, sem classe → listar opções. */
+function isReadyToBrowseWithoutClass(
+  text: string,
+  patch: Partial<NeedsProfile>,
+  current: NeedsProfile,
+): boolean {
+  const n = normalize(text);
+  const looksLikeSearch =
+    /\b(procuro|procura|quero|preciso|encontra|encontrar|mostrar|mostra|ver)\b/.test(
+      n,
+    );
+  if (!looksLikeSearch) return false;
+
+  const hasLocation =
+    Boolean(patch.provincia?.trim() || patch.municipio?.trim()) ||
+    Boolean(current.provincia?.trim() || current.municipio?.trim());
+  if (!hasLocation) return false;
+
+  const hasFilter =
+    patch.precoMax != null ||
+    current.precoMax != null ||
+    Boolean(patch.tipoEnsino?.trim()) ||
+    Boolean(current.tipoEnsino?.trim());
+
+  const hasSpecificClass = Boolean(
+    (patch.classe ?? '').trim() || (current.classe ?? '').trim(),
+  );
+  // Nesta mensagem ainda não há classe concreta
+  const classInThisTurn = Boolean((patch.classe ?? '').trim());
+  return hasFilter && !classInThisTurn && !hasSpecificClass;
+}
+
 /** Vários filhos / vários níveis / «depois avalio». */
 function isMultiLevelOrDeferClassIntent(text: string): boolean {
   const n = normalize(text);
@@ -482,9 +528,11 @@ export function parseConciergeTurnDeterministic(
     softAdjust = 'more_options';
   }
 
-  // "todos os colégios" / lista ampla / vários níveis → browse sem classe obrigatória
+  // "todos os colégios" / lista ampla / vários níveis / procura com filtros sem classe
   const browseAll =
-    isBrowseListIntent(text) || isMultiLevelOrDeferClassIntent(text);
+    isBrowseListIntent(text) ||
+    isMultiLevelOrDeferClassIntent(text) ||
+    isReadyToBrowseWithoutClass(text, patch, current);
 
   if (browseAll) {
     applyBrowseWideDefaults(patch, current, location);
@@ -499,6 +547,27 @@ export function parseConciergeTurnDeterministic(
     )
   ) {
     applyBrowseWideDefaults(patch, current, location);
+  }
+
+  // Pergunta de distância → NÃO pesquisar de novo
+  if (isDistanceQuestion(text)) {
+    const zone =
+      current.municipio?.trim() ||
+      current.provincia?.trim() ||
+      patch.municipio?.trim() ||
+      patch.provincia?.trim();
+    return {
+      needsPatch: {},
+      reply: zone
+        ? `Com base na sua localização actual, a distância a cada instituição aparece no cartão (em km). Se vir «—», a escola ainda não tem coordenadas no mapa ou o browser não partilhou a sua localização.`
+        : `A distância em km usa a sua localização actual e as coordenadas da instituição. Permita o GPS no browser e confirme que a escola tem localização no mapa.`,
+      intent: 'clarify',
+      actions: {
+        shouldSearch: false,
+        compareTop: null,
+        softAdjust: null,
+      },
+    };
   }
 
   const merged = mergeNeeds(current, patch);

@@ -321,7 +321,7 @@ export class SearchConciergeSessionUseCase
     ) {
       motivos.push(`Fica em ${needs.provincia}`);
     }
-    if (school.distanceKm != null && school.distanceKm <= 15) {
+    if (school.distanceKm != null) {
       motivos.push(`A cerca de ${school.distanceKm.toFixed(1)} km de si`);
     }
     if (

@@ -65,7 +65,10 @@ export class ProcessConciergeTurnUseCase
       needs.transporte = false;
     }
 
-    const shouldSearch = llm.actions.shouldSearch || isNeedsReady(needs);
+    const wasReady = isNeedsReady(currentNeeds);
+    const readyNow = isNeedsReady(needs);
+    const shouldSearch =
+      Boolean(llm.actions.shouldSearch) || (readyNow && !wasReady);
     const phase: ConciergePhase = shouldSearch
       ? ConciergePhase.processing
       : ConciergePhase.collecting;

@@ -294,6 +294,9 @@ Campos mínimos normais: município/província → classe → orçamento (precoM
 Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno, browseWide.
 - Se a pessoa der vários dados de uma vez, extrai TODOS para needsPatch e só pergunta o que ainda falta.
 - Quando faltar algo, prioriza o campo: ${awaiting ?? 'nenhum (já podes pesquisar)'}.
+- EXCEPÇÃO — pergunta de distância/km sobre resultados já mostrados:
+  "quantos km", "distância", "de acordo com a minha localização" →
+  NÃO pesquisar de novo. intent=clarify, shouldSearch=false. Explica que o km está no cartão.
 - EXCEPÇÃO — procura ampla (NÃO perguntes classe):
   "lista/listar/mostra/apresenta os colégios de Luanda", "todos os colégios", "todas as opções",
   "vários filhos", "desde a infância até ao médio", "depois eu vou avaliar" →
@@ -348,18 +351,21 @@ Responde APENAS JSON válido (sem texto fora do JSON):
 
     const merged = mergeNeeds(current, patch);
     const ready = isNeedsReady(merged);
-    const shouldSearch =
-      Boolean(det.actions.shouldSearch) ||
-      Boolean(llm.actions?.shouldSearch) ||
-      ready;
+    const detBlocksSearch =
+      det.intent === 'clarify' && det.actions.shouldSearch === false;
+    const shouldSearch = detBlocksSearch
+      ? false
+      : Boolean(det.actions.shouldSearch) ||
+        Boolean(llm.actions?.shouldSearch) ||
+        ready;
 
     const llmReply =
       typeof llm.reply === 'string' && llm.reply.trim()
         ? llm.reply.trim()
         : '';
-    // Quando o parser já decide pesquisar (lista ampla / perfil completo),
-    // a reply determinística prevalece — evita a IA insistir em classe.
+    
     const detTakesReply =
+      detBlocksSearch ||
       shouldSearch ||
       det.intent === 'ready_to_search' ||
       Boolean(det.needsPatch.browseWide);
@@ -370,11 +376,13 @@ Responde APENAS JSON válido (sem texto fora do JSON):
     return {
       needsPatch: patch,
       reply,
-      intent: ready || shouldSearch
-        ? 'ready_to_search'
-        : (det.intent === 'soft_adjust'
-            ? det.intent
-            : (llm.intent ?? det.intent ?? 'ask_question')),
+      intent: detBlocksSearch
+        ? 'clarify'
+        : ready || shouldSearch
+          ? 'ready_to_search'
+          : (det.intent === 'soft_adjust'
+              ? det.intent
+              : (llm.intent ?? det.intent ?? 'ask_question')),
       actions: {
         shouldSearch,
         compareTop: det.actions.compareTop ?? llm.actions?.compareTop ?? null,
