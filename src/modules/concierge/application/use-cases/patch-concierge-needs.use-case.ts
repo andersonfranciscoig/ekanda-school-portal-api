@@ -17,6 +17,8 @@ export type PatchConciergeNeedsInput = {
   deviceId?: string | null;
   needs: Partial<NeedsProfile>;
   runSearch?: boolean;
+  lat?: number;
+  lng?: number;
 };
 
 @Injectable()
@@ -53,6 +55,8 @@ export class PatchConciergeNeedsUseCase
       sessionId: input.sessionId,
       userId: input.userId,
       deviceId: input.deviceId,
+      lat: input.lat,
+      lng: input.lng,
     });
 
     return {

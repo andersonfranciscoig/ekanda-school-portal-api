@@ -227,9 +227,8 @@ function extractLocation(text: string): {
   for (const province of KNOWN_PROVINCES) {
     if (new RegExp(`\\b${province.replace(/\s+/g, '\\s+')}\\b`, 'i').test(text)) {
       out.provincia = province;
-      if (/luanda/i.test(province)) {
-        out.municipio = 'Luanda';
-      }
+      out.clearMunicipio = true;
+      out.municipio = '';
       return out;
     }
   }
@@ -435,8 +434,13 @@ export function parseConciergeTurnDeterministic(
     /\blistar\s+(os\s+)?col[eé]gios\b/i.test(text);
 
   if (browseAll) {
-    patch.municipio = '';
-    patch.provincia = current.provincia || '';
+    // Ampliar procura, mas preservar localização já detetada (ex.: «de Luanda»)
+    if (!location.municipio || location.clearMunicipio) {
+      patch.municipio = '';
+    }
+    if (!patch.provincia) {
+      patch.provincia = current.provincia || '';
+    }
     if (patch.precoMax == null && current.precoMax == null) patch.precoMax = 150000;
     if (patch.transporte == null && current.transporte === null) patch.transporte = false;
     if (!patch.classe && !current.classe) patch.classe = '1.ª classe';
@@ -485,10 +489,17 @@ export function parseConciergeTurnDeterministic(
 
   if (softAdjust) {
     actions.shouldSearch = true;
+    const zone =
+      patch.municipio?.trim() ||
+      patch.provincia?.trim() ||
+      current.municipio?.trim() ||
+      current.provincia?.trim();
     return {
       needsPatch: patch,
       reply: browseAll
-        ? 'Claro. Vou listar os colégios disponíveis no ecossistema Ekanda.'
+        ? zone
+          ? `Claro. Vou listar as instituições em ${zone}, priorizando as mais próximas de si.`
+          : 'Claro. Vou listar as instituições disponíveis, priorizando as mais próximas de si.'
         : 'Vou ajustar a procura com base no seu pedido.',
       intent: browseAll ? 'ready_to_search' : 'soft_adjust',
       actions,

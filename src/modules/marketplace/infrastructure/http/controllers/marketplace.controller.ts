@@ -70,6 +70,8 @@ export class MarketplaceController {
       tuitionMax: query.tuitionMax,
       municipality: query.municipality,
       province: query.province,
+      lat: query.lat,
+      lng: query.lng,
     });
     return ok(result, 'Schools compared');
   }

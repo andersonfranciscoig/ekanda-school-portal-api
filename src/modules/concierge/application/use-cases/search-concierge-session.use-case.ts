@@ -18,6 +18,8 @@ export type SearchConciergeSessionInput = {
   deviceId?: string | null;
   limit?: number;
   relaxIfEmpty?: boolean;
+  lat?: number;
+  lng?: number;
 };
 
 type Match = {
@@ -48,9 +50,10 @@ export class SearchConciergeSessionUseCase
     const needs = session.needs as NeedsProfile;
     const limit = Math.min(10, Math.max(1, Number(input.limit ?? 5) || 5));
     const relaxIfEmpty = input.relaxIfEmpty !== false;
+    const userCoords = this.parseCoords(input.lat, input.lng);
 
     let relaxed = false;
-    let matches = await this.runSearch(needs, limit);
+    let matches = await this.runSearch(needs, limit, userCoords);
     let totalAnalisados = matches.totalAnalisados;
 
     if (matches.items.length === 0 && relaxIfEmpty) {
@@ -67,7 +70,7 @@ export class SearchConciergeSessionUseCase
         precoMax:
           needs.precoMax != null ? Math.round(needs.precoMax * 1.25) : null,
       };
-      matches = await this.runSearch(relaxedNeeds, limit);
+      matches = await this.runSearch(relaxedNeeds, limit, userCoords);
       totalAnalisados = Math.max(totalAnalisados, matches.totalAnalisados);
 
       // 2) alargar localização: só província (ex.: Talatona → Luanda)
@@ -76,7 +79,7 @@ export class SearchConciergeSessionUseCase
           ...relaxedNeeds,
           municipio: '',
         };
-        matches = await this.runSearch(relaxedNeeds, limit);
+        matches = await this.runSearch(relaxedNeeds, limit, userCoords);
         totalAnalisados = Math.max(totalAnalisados, matches.totalAnalisados);
       }
 
@@ -86,7 +89,7 @@ export class SearchConciergeSessionUseCase
           ...relaxedNeeds,
           classe: '',
         };
-        matches = await this.runSearch(relaxedNeeds, limit);
+        matches = await this.runSearch(relaxedNeeds, limit, userCoords);
         totalAnalisados = Math.max(totalAnalisados, matches.totalAnalisados);
       }
     }
@@ -108,6 +111,9 @@ export class SearchConciergeSessionUseCase
         }),
       );
     } else {
+      const proximityNote = userCoords
+        ? ' Dentro da zona pedida, priorizámos as mais próximas da sua localização actual.'
+        : '';
       assistantMessages.push(
         await this.store.addMessage({
           sessionId: session.id,
@@ -115,7 +121,7 @@ export class SearchConciergeSessionUseCase
           kind: ConciergeMessageKind.text,
           content: `Analisámos ${totalAnalisados} instituições disponíveis${
             relaxed ? ' (com critérios flexibilizados)' : ''
-          }. A compatibilidade (%) é calculada com dados reais do perfil de cada escola.`,
+          }. A compatibilidade (%) é calculada com dados reais do perfil de cada escola.${proximityNote}`,
         }),
         await this.store.addMessage({
           sessionId: session.id,
@@ -222,19 +228,52 @@ export class SearchConciergeSessionUseCase
     };
   }
 
+  private parseCoords(
+    lat?: number,
+    lng?: number,
+  ): { lat: number; lng: number } | null {
+    if (
+      typeof lat === 'number' &&
+      Number.isFinite(lat) &&
+      typeof lng === 'number' &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    ) {
+      return { lat, lng };
+    }
+    return null;
+  }
+
   private async runSearch(
     needs: NeedsProfile,
     limit: number,
+    userCoords: { lat: number; lng: number } | null,
   ): Promise<{ items: Match[]; totalAnalisados: number }> {
     const filters = needsToMarketplaceFilters(needs);
     const result = await this.marketplaceSearch.execute({
       ...filters,
+      ...(userCoords
+        ? { lat: userCoords.lat, lng: userCoords.lng }
+        : {}),
       sort: 'recommended',
       page: 1,
       pageSize: 48,
     });
 
-    const items: Match[] = result.items.slice(0, limit).map((school) => ({
+    let ranked = result.items;
+    if (userCoords) {
+      ranked = [...result.items].sort((a, b) => {
+        const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
+        const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
+        if (da !== db) return da - db;
+        return b.compatibility.score - a.compatibility.score;
+      });
+    }
+
+    const items: Match[] = ranked.slice(0, limit).map((school) => ({
       school,
       score: school.compatibility.score,
       motivos: this.buildMotivos(school, needs),
@@ -270,6 +309,16 @@ export class SearchConciergeSessionUseCase
         .includes(needs.municipio.toLowerCase())
     ) {
       motivos.push('Fica na localização indicada');
+    } else if (
+      needs.provincia &&
+      school.location?.province
+        ?.toLowerCase()
+        .includes(needs.provincia.toLowerCase())
+    ) {
+      motivos.push(`Fica em ${needs.provincia}`);
+    }
+    if (school.distanceKm != null && school.distanceKm <= 15) {
+      motivos.push(`A cerca de ${school.distanceKm.toFixed(1)} km de si`);
     }
     if (
       needs.transporte === true &&

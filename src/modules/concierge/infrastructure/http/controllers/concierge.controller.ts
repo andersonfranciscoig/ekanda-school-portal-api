@@ -188,6 +188,8 @@ export class ConciergeController {
       deviceId: deviceId ?? null,
       limit: body.limit,
       relaxIfEmpty: body.relaxIfEmpty,
+      lat: body.lat,
+      lng: body.lng,
     });
     return ok(result, 'Concierge search completed');
   }
@@ -206,6 +208,8 @@ export class ConciergeController {
       deviceId: deviceId ?? null,
       needs: body.needs,
       runSearch: body.runSearch,
+      lat: body.lat,
+      lng: body.lng,
     });
     return ok(result, 'Concierge needs updated');
   }

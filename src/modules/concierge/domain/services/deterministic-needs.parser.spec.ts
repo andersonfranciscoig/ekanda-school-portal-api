@@ -30,7 +30,7 @@ describe('parseConciergeTurnDeterministic', () => {
     expect(result.actions.shouldSearch).toBe(true);
   });
 
-  it('does not treat "perto de mim" as municipio and reads Luanda', () => {
+  it('does not treat "perto de mim" as municipio and reads Luanda as province', () => {
     const result = parseConciergeTurnDeterministic(
       'Procuro um colégio perto de mim, estou em Luanda',
       EMPTY_NEEDS,
@@ -38,8 +38,17 @@ describe('parseConciergeTurnDeterministic', () => {
 
     expect(result.needsPatch.municipio).not.toBe('mim');
     expect(result.needsPatch.provincia).toBe('Luanda');
-    expect(result.needsPatch.municipio).toBe('Luanda');
+    expect(result.needsPatch.municipio).toBe('');
     expect(result.reply.toLowerCase()).not.toContain('anotei mim');
+  });
+
+  it('treats "todos os colégios de Luanda" as province-wide search', () => {
+    const result = parseConciergeTurnDeterministic(
+      'Quero todos os colégios de Luanda',
+      EMPTY_NEEDS,
+    );
+    expect(result.needsPatch.provincia).toBe('Luanda');
+    expect(result.needsPatch.municipio).toBe('');
   });
 
   it('does not set budget from "qualquer classe"', () => {

@@ -114,6 +114,7 @@ export function buildSessionTitle(needs: NeedsProfile): string {
   const parts: string[] = [];
   if (needs.classe) parts.push(`Colégio para ${needs.classe}`);
   if (needs.municipio) parts.push(needs.municipio);
+  else if (needs.provincia) parts.push(needs.provincia);
   if (needs.precoMax != null) {
     parts.push(
       needs.precoMax === 0
@@ -146,9 +147,18 @@ export function needsToMarketplaceFilters(needs: NeedsProfile): {
   else if (tipo.includes('internacional')) teachingType = 'INTERNATIONAL';
   else if (tipo.includes('privado')) teachingType = 'PRIVATE';
 
+  const municipality = (needs.municipio ?? '').trim();
+  const province = (needs.provincia ?? '').trim();
+  // «Luanda» como município costuma significar a província inteira
+  const municipalityIsProvince =
+    Boolean(municipality) &&
+    Boolean(province) &&
+    municipality.localeCompare(province, 'pt', { sensitivity: 'base' }) === 0;
+
   return {
-    municipality: (needs.municipio ?? '').trim() || undefined,
-    province: (needs.provincia ?? '').trim() || undefined,
+    municipality:
+      municipality && !municipalityIsProvince ? municipality : undefined,
+    province: province || undefined,
     classLabel: (needs.classe ?? '').trim() || undefined,
     tuitionMax: needs.precoMax ?? undefined,
     serviceIds,

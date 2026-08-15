@@ -28,4 +28,16 @@ export class MarketplaceCompareQueryDto {
   @IsOptional()
   @IsString()
   province?: string;
+
+  @ApiPropertyOptional({ description: 'Latitude do utilizador (distâncias)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lat?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude do utilizador (distâncias)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lng?: number;
 }

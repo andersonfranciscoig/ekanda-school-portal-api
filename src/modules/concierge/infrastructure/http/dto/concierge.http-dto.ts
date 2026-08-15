@@ -69,6 +69,30 @@ export class ConciergeSearchBodyDto {
   @IsOptional()
   @IsBoolean()
   relaxIfEmpty?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Latitude do utilizador — prioriza instituições próximas na ordenação',
+    example: -8.8383,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Longitude do utilizador — prioriza instituições próximas na ordenação',
+    example: 13.2344,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number;
 }
 
 export class NeedsProfileDto {
@@ -148,6 +172,22 @@ export class PatchConciergeNeedsBodyDto {
   @IsOptional()
   @IsBoolean()
   runSearch?: boolean;
+
+  @ApiPropertyOptional({ example: -8.8383 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number;
+
+  @ApiPropertyOptional({ example: 13.2344 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number;
 }
 
 export class ScheduleConciergeVisitBodyDto {

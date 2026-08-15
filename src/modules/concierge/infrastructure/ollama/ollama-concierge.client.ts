@@ -295,7 +295,7 @@ Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno.
 - Se a pessoa der vários dados de uma vez, extrai TODOS para needsPatch e só pergunta o que ainda falta.
 - Quando faltar algo, prioriza o campo: ${awaiting ?? 'nenhum (já podes pesquisar)'}.
 - Localização: "perto do Talatona" / "em Talatona" → municipio=Talatona, provincia=Luanda.
-  "estou em Luanda" sem município → provincia=Luanda e pergunta o município.
+  "estou em Luanda" / "colégios de Luanda" / "todos em Luanda" → provincia=Luanda, municipio="" (toda a província; a pesquisa prioriza proximidade GPS).
   "perto de mim" NÃO é município. Nunca grave "mim", "preferência", "qualquer", "aqui" como município.
 - Orçamento: só preencher precoMax se houver número claro OU se disser explicitamente
   "qualquer valor" / "sem preferência" / "indiferente" → precoMax=150000.

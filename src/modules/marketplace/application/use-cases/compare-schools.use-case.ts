@@ -23,10 +23,11 @@ const COMPARE_FILTERS: MarketplaceSearchFilters = {
 
 export type CompareSchoolsInput = {
   ids?: string | string[];
-  /** Preferências opcionais (ex.: orçamento) para contextualizar a IA. */
   tuitionMax?: number;
   municipality?: string;
   province?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type CompareSchoolExplanation = {
@@ -58,12 +59,29 @@ export class CompareSchoolsUseCase
       );
     }
 
+    const filters: MarketplaceSearchFilters = {
+      ...COMPARE_FILTERS,
+      ...(input.municipality?.trim()
+        ? { municipality: input.municipality.trim() }
+        : {}),
+      ...(input.province?.trim() ? { province: input.province.trim() } : {}),
+      ...(typeof input.tuitionMax === 'number' && Number.isFinite(input.tuitionMax)
+        ? { tuitionMax: input.tuitionMax }
+        : {}),
+      ...(typeof input.lat === 'number' && Number.isFinite(input.lat)
+        ? { lat: input.lat }
+        : {}),
+      ...(typeof input.lng === 'number' && Number.isFinite(input.lng)
+        ? { lng: input.lng }
+        : {}),
+    };
+
     const rows = await this.query.findVisibleByIds(ids);
     const byId = new Map(rows.map((row) => [row.id, row]));
     const items = ids
       .map((id) => {
         const row = byId.get(id);
-        return row ? toMarketplaceCard(row, COMPARE_FILTERS) : null;
+        return row ? toMarketplaceCard(row, filters) : null;
       })
       .filter((card): card is MarketplaceSchoolCard => Boolean(card));
 
