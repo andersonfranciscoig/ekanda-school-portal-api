@@ -290,10 +290,16 @@ Não és um chatbot genérico. Se o utilizador falar de algo fora deste propósi
 - Nunca digas que és um modelo de IA / Ollama / Nemotron.
 
 ## Recolha de necessidades
-Campos mínimos: município/província → classe → orçamento (precoMax em Kz) → transporte (sim/não).
-Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno.
+Campos mínimos normais: município/província → classe → orçamento (precoMax em Kz) → transporte (sim/não).
+Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno, browseWide.
 - Se a pessoa der vários dados de uma vez, extrai TODOS para needsPatch e só pergunta o que ainda falta.
 - Quando faltar algo, prioriza o campo: ${awaiting ?? 'nenhum (já podes pesquisar)'}.
+- EXCEPÇÃO — procura ampla (NÃO perguntes classe):
+  "lista/listar/mostra/apresenta os colégios de Luanda", "todos os colégios", "todas as opções",
+  "vários filhos", "desde a infância até ao médio", "depois eu vou avaliar" →
+  needsPatch.browseWide=true, classe="", provincia (se referida), precoMax=150000 se não houver orçamento,
+  transporte=false se não referido, intent=ready_to_search, shouldSearch=true.
+  Responde que vais listar e priorizar proximidade — NÃO peças uma classe única.
 - Localização: "perto do Talatona" / "em Talatona" → municipio=Talatona, provincia=Luanda.
   "estou em Luanda" / "colégios de Luanda" / "todos em Luanda" → provincia=Luanda, municipio="" (toda a província; a pesquisa prioriza proximidade GPS).
   "perto de mim" NÃO é município. Nunca grave "mim", "preferência", "qualquer", "aqui" como município.
@@ -304,12 +310,13 @@ Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno.
 - tipoEnsino: "pública" / "escola pública" → "Pública"; "privada" / "colégio privado" → "Privado"; semi-privado; internacional.
 - Transporte: sim/preciso → true; não/nao/opcional/não preciso/indiferente → false.
 - Classes: normalizar para Creche, Pré-escolar, 1.ª classe … 12.ª classe (ex.: "5ª" → "5.ª classe").
-- Quando tiveres o mínimo completo, intent=ready_to_search e actions.shouldSearch=true, com uma reply animada a confirmar que vais procurar.
+  Em browseWide deixa classe vazia.
+- Quando tiveres o mínimo completo (ou browseWide com localização), intent=ready_to_search e actions.shouldSearch=true.
 
 ## Formato de saída
 Responde APENAS JSON válido (sem texto fora do JSON):
 {
-  "needsPatch": { "municipio"?: string, "provincia"?: string, "classe"?: string, "precoMax"?: number|null, "transporte"?: boolean|null, "cantina"?: boolean|null, "ingles"?: boolean|null, "informatica"?: boolean|null, "integral"?: boolean|null, "tipoEnsino"?: string, "turno"?: string },
+  "needsPatch": { "municipio"?: string, "provincia"?: string, "classe"?: string, "precoMax"?: number|null, "transporte"?: boolean|null, "cantina"?: boolean|null, "ingles"?: boolean|null, "informatica"?: boolean|null, "integral"?: boolean|null, "tipoEnsino"?: string, "turno"?: string, "browseWide"?: boolean },
   "reply": string,
   "intent": "ask_question"|"ready_to_search"|"compare"|"soft_adjust"|"clarify",
   "actions": { "shouldSearch": boolean, "compareTop": 2|3|null, "softAdjust": "cheaper"|"only_transport"|"no_transport"|null }
@@ -350,14 +357,24 @@ Responde APENAS JSON válido (sem texto fora do JSON):
       typeof llm.reply === 'string' && llm.reply.trim()
         ? llm.reply.trim()
         : '';
-    const reply = llmReply || det.reply;
+    // Quando o parser já decide pesquisar (lista ampla / perfil completo),
+    // a reply determinística prevalece — evita a IA insistir em classe.
+    const detTakesReply =
+      shouldSearch ||
+      det.intent === 'ready_to_search' ||
+      Boolean(det.needsPatch.browseWide);
+    const reply = detTakesReply
+      ? det.reply || llmReply
+      : llmReply || det.reply;
 
     return {
       needsPatch: patch,
       reply,
-      intent: ready
+      intent: ready || shouldSearch
         ? 'ready_to_search'
-        : (llm.intent ?? det.intent ?? 'ask_question'),
+        : (det.intent === 'soft_adjust'
+            ? det.intent
+            : (llm.intent ?? det.intent ?? 'ask_question')),
       actions: {
         shouldSearch,
         compareTop: det.actions.compareTop ?? llm.actions?.compareTop ?? null,

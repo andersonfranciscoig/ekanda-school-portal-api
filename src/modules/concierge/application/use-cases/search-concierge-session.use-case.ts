@@ -48,7 +48,11 @@ export class SearchConciergeSessionUseCase
     });
 
     const needs = session.needs as NeedsProfile;
-    const limit = Math.min(10, Math.max(1, Number(input.limit ?? 5) || 5));
+    const browseWide = Boolean(needs.browseWide);
+    const limit = Math.min(
+      10,
+      Math.max(1, Number(input.limit ?? (browseWide ? 10 : 5)) || (browseWide ? 10 : 5)),
+    );
     const relaxIfEmpty = input.relaxIfEmpty !== false;
     const userCoords = this.parseCoords(input.lat, input.lng);
 

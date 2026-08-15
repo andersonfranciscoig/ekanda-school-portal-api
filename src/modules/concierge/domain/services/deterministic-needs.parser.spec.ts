@@ -42,6 +42,53 @@ describe('parseConciergeTurnDeterministic', () => {
     expect(result.reply.toLowerCase()).not.toContain('anotei mim');
   });
 
+  it('treats "Lista dos colegios de Luanda" as province-wide browse without asking class', () => {
+    const result = parseConciergeTurnDeterministic(
+      'Lista dos os colegios de Luanda',
+      EMPTY_NEEDS,
+    );
+    expect(result.needsPatch.provincia).toBe('Luanda');
+    expect(result.needsPatch.browseWide).toBe(true);
+    expect(result.needsPatch.classe).toBe('');
+    expect(result.needsPatch.precoMax).toBe(150000);
+    expect(result.needsPatch.transporte).toBe(false);
+    expect(result.actions.shouldSearch).toBe(true);
+    expect(result.intent).toBe('ready_to_search');
+    expect(result.reply.toLowerCase()).not.toContain('qual a classe');
+  });
+
+  it('accepts multi-level / several children as browseWide and searches', () => {
+    const withLuanda = {
+      ...EMPTY_NEEDS,
+      provincia: 'Luanda',
+      browseWide: true,
+      precoMax: 150000,
+      transporte: false,
+    };
+    const result = parseConciergeTurnDeterministic(
+      'desde o ensino de infancia ate o ensino medio, tenho varios filhos',
+      withLuanda,
+    );
+    expect(result.needsPatch.browseWide).toBe(true);
+    expect(result.actions.shouldSearch).toBe(true);
+  });
+
+  it('presents all options without re-asking for class', () => {
+    const base = {
+      ...EMPTY_NEEDS,
+      provincia: 'Luanda',
+      browseWide: true,
+      precoMax: 150000,
+      transporte: false,
+    };
+    const result = parseConciergeTurnDeterministic(
+      'Podes apresentar todas opcoes de colegio depois eu vou avaliar',
+      base,
+    );
+    expect(result.actions.shouldSearch).toBe(true);
+    expect(result.reply.toLowerCase()).not.toMatch(/qual (a |é a )?classe/);
+  });
+
   it('treats "todos os colégios de Luanda" as province-wide search', () => {
     const result = parseConciergeTurnDeterministic(
       'Quero todos os colégios de Luanda',
@@ -49,9 +96,11 @@ describe('parseConciergeTurnDeterministic', () => {
     );
     expect(result.needsPatch.provincia).toBe('Luanda');
     expect(result.needsPatch.municipio).toBe('');
+    expect(result.needsPatch.browseWide).toBe(true);
+    expect(result.actions.shouldSearch).toBe(true);
   });
 
-  it('does not set budget from "qualquer classe"', () => {
+  it('treats "qualquer classe" as browseWide without inventing a single class', () => {
     const base = {
       ...EMPTY_NEEDS,
       municipio: 'Talatona',
@@ -59,8 +108,9 @@ describe('parseConciergeTurnDeterministic', () => {
       classe: 'Pré-escolar',
     };
     const result = parseConciergeTurnDeterministic('Qualquer classe', base);
-    expect(result.needsPatch.precoMax).toBeUndefined();
-    expect(result.actions.shouldSearch).toBe(false);
+    expect(result.needsPatch.browseWide).toBe(true);
+    expect(result.needsPatch.classe).toBe('');
+    expect(result.actions.shouldSearch).toBe(true);
   });
 
   it('treats dual municipalities as province-wide search', () => {

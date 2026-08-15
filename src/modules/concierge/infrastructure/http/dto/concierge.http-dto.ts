@@ -157,6 +157,14 @@ export class NeedsProfileDto {
   @IsOptional()
   @IsString()
   turno?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Procura ampla sem filtrar por uma única classe (listar todos / vários níveis)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  browseWide?: boolean;
 }
 
 export class PatchConciergeNeedsBodyDto {

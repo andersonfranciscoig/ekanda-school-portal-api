@@ -10,6 +10,7 @@ export type NeedsProfile = {
   integral: boolean | null;
   tipoEnsino: string;
   turno: string;
+  browseWide: boolean;
 };
 
 export type ConciergePhase =
@@ -62,6 +63,7 @@ export const EMPTY_NEEDS: NeedsProfile = {
   integral: null,
   tipoEnsino: '',
   turno: '',
+  browseWide: false,
 };
 
 export const WELCOME_MESSAGE =
@@ -91,9 +93,11 @@ export function mergeNeeds(
 export function isNeedsReady(needs: NeedsProfile): boolean {
   const hasLocation =
     Boolean(needs.municipio?.trim()) || Boolean(needs.provincia?.trim());
+  const hasClassOrBrowse =
+    Boolean(needs.classe?.trim()) || Boolean(needs.browseWide);
   return (
     hasLocation &&
-    Boolean(needs.classe?.trim()) &&
+    hasClassOrBrowse &&
     needs.precoMax != null &&
     needs.precoMax >= 0 &&
     needs.transporte !== null
@@ -104,7 +108,7 @@ export function nextMissingField(needs: NeedsProfile): string | null {
   const hasLocation =
     Boolean(needs.municipio?.trim()) || Boolean(needs.provincia?.trim());
   if (!hasLocation) return 'municipio';
-  if (!needs.classe?.trim()) return 'classe';
+  if (!needs.classe?.trim() && !needs.browseWide) return 'classe';
   if (needs.precoMax == null) return 'precoMax';
   if (needs.transporte === null) return 'transporte';
   return null;
@@ -112,7 +116,8 @@ export function nextMissingField(needs: NeedsProfile): string | null {
 
 export function buildSessionTitle(needs: NeedsProfile): string {
   const parts: string[] = [];
-  if (needs.classe) parts.push(`Colégio para ${needs.classe}`);
+  if (needs.browseWide) parts.push('Procura ampla');
+  else if (needs.classe) parts.push(`Colégio para ${needs.classe}`);
   if (needs.municipio) parts.push(needs.municipio);
   else if (needs.provincia) parts.push(needs.provincia);
   if (needs.precoMax != null) {
@@ -159,7 +164,10 @@ export function needsToMarketplaceFilters(needs: NeedsProfile): {
     municipality:
       municipality && !municipalityIsProvince ? municipality : undefined,
     province: province || undefined,
-    classLabel: (needs.classe ?? '').trim() || undefined,
+    classLabel:
+      needs.browseWide || !(needs.classe ?? '').trim()
+        ? undefined
+        : (needs.classe ?? '').trim(),
     tuitionMax: needs.precoMax ?? undefined,
     serviceIds,
     fullDay: needs.integral === true ? true : undefined,

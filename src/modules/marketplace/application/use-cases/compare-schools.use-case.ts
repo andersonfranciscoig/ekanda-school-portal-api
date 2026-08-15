@@ -96,24 +96,32 @@ export class CompareSchoolsUseCase
         : {}),
     };
 
-    const ai = await this.ollama.explainMatches(
-      needs,
-      items.map((school) => ({
-        schoolId: school.id,
-        name: school.name,
-        score: school.compatibility.score,
-        factualReasons: school.compatibility.reasons,
-        municipality: school.location?.municipality ?? null,
-        province: school.location?.province ?? null,
-        tuitionFrom: school.pricing.tuitionFrom,
-        feesAreFree: Boolean(school.pricing.feesAreFree),
-        services: school.services.map((s) => s.label),
-        classes: school.classes,
-        ratingAverage: school.rating.average,
-        vacanciesTotal: school.vacanciesTotal,
-        teachingType: school.teachingType,
-      })),
-    );
+    const grounded = items.map((school) => ({
+      schoolId: school.id,
+      name: school.name,
+      score: school.compatibility.score,
+      factualReasons: school.compatibility.reasons,
+      municipality: school.location?.municipality ?? null,
+      province: school.location?.province ?? null,
+      tuitionFrom: school.pricing.tuitionFrom,
+      feesAreFree: Boolean(school.pricing.feesAreFree),
+      services: school.services.map((s) => s.label),
+      classes: school.classes,
+      ratingAverage: school.rating.average,
+      vacanciesTotal: school.vacanciesTotal,
+      teachingType: school.teachingType,
+    }));
+
+    // Não bloquear a comparação se a IA demorar: devolver cards já com factos.
+    const ai = await Promise.race([
+      this.ollama.explainMatches(needs, grounded),
+      new Promise<{ explanations: []; compareSummary: null }>((resolve) =>
+        setTimeout(
+          () => resolve({ explanations: [], compareSummary: null }),
+          12_000,
+        ),
+      ),
+    ]);
 
     return {
       items,

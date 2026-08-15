@@ -143,11 +143,12 @@ function extractPrice(text: string): number | null {
 
 function extractClasse(text: string): string | null {
   const n = normalize(text);
-  // Flexível: ainda precisamos de um valor concreto para o ranking — pedir de novo no fluxo
+  // Flexível / multi-nível → tratado como browseWide no parse principal
   if (
     /\bqualquer\s+classes?\b/.test(n) ||
     /\bqualquer\s+umas?\s+(dessas\s+)?classes\b/.test(n) ||
-    /\btodas\s+as\s+classes\b/.test(n)
+    /\btodas\s+as\s+classes\b/.test(n) ||
+    /\btodos\s+os\s+niveis\b/.test(n)
   ) {
     return null;
   }
@@ -165,6 +166,62 @@ function extractClasse(text: string): string | null {
     if (num && /^\d+$/.test(num)) return `${num}.ª classe`;
   }
   return null;
+}
+
+/** Pedido explícito de listagem / ver todas as opções. */
+function isBrowseListIntent(text: string): boolean {
+  const n = normalize(text);
+  const mentionsSchools =
+    /\b(colegios?|escolas?|opcoes|institui[cç]oes)\b/.test(n);
+  const listVerb =
+    /\b(lista|listar|liste|mostre|mostra|mostrar|apresenta|apresentar|traga|traz|veja|ver)\b/.test(
+      n,
+    );
+  return (
+    (listVerb && mentionsSchools) ||
+    /\btodos?\s+(os\s+)?(colegios?|escolas?)\b/.test(n) ||
+    /\btodas?\s+(as\s+)?(escolas?|opcoes)\b/.test(n) ||
+    /\becos+istema\s+ekanda\b/.test(n) ||
+    /\bsugest[oõ]es?\s+de\s+todos\b/.test(n) ||
+    /\blistar\s+(os\s+)?col[eé]gios\b/i.test(text)
+  );
+}
+
+/** Vários filhos / vários níveis / «depois avalio». */
+function isMultiLevelOrDeferClassIntent(text: string): boolean {
+  const n = normalize(text);
+  return (
+    /\bvarios\s+filhos\b/.test(n) ||
+    /\bdesde\b[\s\S]{0,40}\bate\b/.test(n) ||
+    (/\b(infancia|infantil|creche|pre[\s-]?escolar)\b/.test(n) &&
+      /\b(medio|secundario|12|ii\s*ciclo)\b/.test(n)) ||
+    /\bensino\s+de\s+infancia\b/.test(n) ||
+    /\btodas?\s+as\s+(classes|niveis|opcoes)\b/.test(n) ||
+    /\bdepois\s+(eu\s+)?(vou\s+)?avaliar\b/.test(n) ||
+    /\b(apresentar|mostrar|ver)\s+todas?\b/.test(n) ||
+    /\beu\s+vou\s+avaliar\b/.test(n)
+  );
+}
+
+function applyBrowseWideDefaults(
+  patch: Partial<NeedsProfile>,
+  current: NeedsProfile,
+  location: { provincia?: string; municipio?: string; clearMunicipio?: boolean },
+) {
+  patch.browseWide = true;
+  patch.classe = '';
+  if (!location.municipio || location.clearMunicipio) {
+    if (patch.municipio === undefined) patch.municipio = '';
+  }
+  if (!patch.provincia) {
+    patch.provincia = current.provincia || location.provincia || '';
+  }
+  if (patch.precoMax == null && current.precoMax == null) {
+    patch.precoMax = 150000;
+  }
+  if (patch.transporte == null && current.transporte === null) {
+    patch.transporte = false;
+  }
 }
 
 function extractLocation(text: string): {
@@ -425,26 +482,23 @@ export function parseConciergeTurnDeterministic(
     softAdjust = 'more_options';
   }
 
-  // "todos os colégios" / ecossistema Ekanda → browse amplo
+  // "todos os colégios" / lista ampla / vários níveis → browse sem classe obrigatória
   const browseAll =
-    /\btodos\s+os\s+col[eé]gios\b/i.test(text) ||
-    /\btodas\s+as\s+escolas\b/i.test(text) ||
-    /\becos+istema\s+ekanda\b/i.test(text) ||
-    /\bsugest[oõ]es?\s+de\s+todos\b/i.test(text) ||
-    /\blistar\s+(os\s+)?col[eé]gios\b/i.test(text);
+    isBrowseListIntent(text) || isMultiLevelOrDeferClassIntent(text);
 
   if (browseAll) {
-    // Ampliar procura, mas preservar localização já detetada (ex.: «de Luanda»)
-    if (!location.municipio || location.clearMunicipio) {
-      patch.municipio = '';
-    }
-    if (!patch.provincia) {
-      patch.provincia = current.provincia || '';
-    }
-    if (patch.precoMax == null && current.precoMax == null) patch.precoMax = 150000;
-    if (patch.transporte == null && current.transporte === null) patch.transporte = false;
-    if (!patch.classe && !current.classe) patch.classe = '1.ª classe';
+    applyBrowseWideDefaults(patch, current, location);
     softAdjust = softAdjust ?? 'more_options';
+  }
+
+  // «qualquer classe» / «todas as classes» sem listagem explícita
+  if (
+    !browseAll &&
+    /\b(qualquer\s+classes?|todas\s+as\s+classes|todos\s+os\s+niveis)\b/i.test(
+      normalize(text),
+    )
+  ) {
+    applyBrowseWideDefaults(patch, current, location);
   }
 
   const merged = mergeNeeds(current, patch);
@@ -488,22 +542,44 @@ export function parseConciergeTurnDeterministic(
   }
 
   if (softAdjust) {
-    actions.shouldSearch = true;
+    const again = mergeNeeds(current, patch);
+    const canGo = isNeedsReady(again);
+    actions.shouldSearch = canGo;
     const zone =
-      patch.municipio?.trim() ||
-      patch.provincia?.trim() ||
-      current.municipio?.trim() ||
-      current.provincia?.trim();
-    return {
-      needsPatch: patch,
-      reply: browseAll
-        ? zone
-          ? `Claro. Vou listar as instituições em ${zone}, priorizando as mais próximas de si.`
-          : 'Claro. Vou listar as instituições disponíveis, priorizando as mais próximas de si.'
-        : 'Vou ajustar a procura com base no seu pedido.',
-      intent: browseAll ? 'ready_to_search' : 'soft_adjust',
-      actions,
-    };
+      again.municipio?.trim() ||
+      again.provincia?.trim() ||
+      '';
+    const wide = Boolean(again.browseWide);
+    if (browseAll && canGo) {
+      return {
+        needsPatch: patch,
+        reply: zone
+          ? `Perfeito. Vou listar instituições em ${zone}${
+              wide ? ' (todos os níveis)' : ''
+            }, priorizando as mais próximas de si — depois avalia com calma.`
+          : 'Claro. Vou listar as instituições disponíveis, priorizando as mais próximas de si.',
+        intent: 'ready_to_search',
+        actions,
+      };
+    }
+    if (canGo) {
+      return {
+        needsPatch: patch,
+        reply: 'Vou ajustar a procura com base no seu pedido.',
+        intent: 'soft_adjust',
+        actions,
+      };
+    }
+    // Browse pedido mas ainda falta localização
+    if (browseAll && !zone) {
+      return {
+        needsPatch: patch,
+        reply:
+          'Com certeza. Em que província ou município quer ver as instituições?',
+        intent: 'ask_question',
+        actions,
+      };
+    }
   }
 
   if (ready) {
@@ -517,6 +593,23 @@ export function parseConciergeTurnDeterministic(
       intent: 'ready_to_search',
       actions,
     };
+  }
+
+  // Se já temos localização + browseWide mas ainda falta algo (raro), não insistir em classe
+  if (patch.browseWide && missing === 'classe') {
+    applyBrowseWideDefaults(patch, current, location);
+    const again = mergeNeeds(current, patch);
+    if (isNeedsReady(again)) {
+      actions.shouldSearch = true;
+      const zone =
+        again.municipio?.trim() || again.provincia?.trim() || 'a sua zona';
+      return {
+        needsPatch: patch,
+        reply: `Combinado — mostro as opções em ${zone} sem filtrar por uma só classe.`,
+        intent: 'ready_to_search',
+        actions,
+      };
+    }
   }
 
   const prefix = noted.length > 0 ? `Anotei ${noted.join(', ')}. ` : '';
