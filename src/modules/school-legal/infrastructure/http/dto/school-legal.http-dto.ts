@@ -1,5 +1,6 @@
-import { Equals, IsBoolean, IsOptional, IsUUID, Matches } from 'class-validator';
+import { Equals, IsEnum, IsOptional, IsString, IsUUID, Matches, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
+import { SchoolNifStatus } from '@prisma/client';
 import { NIF_PATTERN } from '../../../application/school-legal.constants';
 
 export class SubmitNifBodyDto {
@@ -25,4 +26,28 @@ export class LegalAuditQueryDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number;
+}
+
+export class AdminLegalSchoolsQueryDto {
+  @IsOptional()
+  @IsEnum(SchoolNifStatus)
+  nifStatus?: SchoolNifStatus;
+
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  pageSize?: number;
+}
+
+export class RejectNifBodyDto {
+  @IsString()
+  @MinLength(5, { message: 'Indique um motivo com pelo menos 5 caracteres.' })
+  reason!: string;
 }

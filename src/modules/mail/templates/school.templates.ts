@@ -128,6 +128,73 @@ export function schoolLegalApproved(props: {
   return { subject, html, text };
 }
 
+export function schoolNifSubmittedOps(props: {
+  schoolName: string;
+  nif: string;
+  ownerEmail: string;
+  adminUrl: string;
+}): RenderedEmail {
+  const subject = `[Ops] NIF submetido: ${props.schoolName}`;
+  const text = `Colégio "${props.schoolName}" submeteu NIF ${props.nif} (${props.ownerEmail}).\n${props.adminUrl}`;
+  const html = mailLayout({
+    preview: `NIF submetido — ${props.schoolName}`,
+    title: 'NIF aguarda validação',
+    bodyHtml: `
+      ${paragraph('<strong>Colégio:</strong> ' + e(props.schoolName))}
+      ${paragraph('<strong>NIF:</strong> ' + e(props.nif))}
+      ${paragraph('<strong>Responsável:</strong> ' + e(props.ownerEmail))}
+      ${highlightBox('Valide o NIF no portal da AGT e confirme na área Jurídica do painel admin.')}
+      ${mailButton(props.adminUrl, 'Validar NIF no admin')}
+    `,
+    footerNote: 'Alerta interno Ekanda — validação fiscal.',
+  });
+  return { subject, html, text };
+}
+
+export function schoolNifVerified(props: {
+  ownerName: string;
+  schoolName: string;
+  nif: string;
+  juridicoUrl: string;
+}): RenderedEmail {
+  const subject = 'NIF validado — área Jurídica';
+  const text = `Olá ${props.ownerName},\n\nO NIF ${props.nif} de "${props.schoolName}" foi validado pela equipa Ekanda.\n${props.juridicoUrl}\n— Ekanda`;
+  const html = mailLayout({
+    preview: 'NIF validado com sucesso',
+    title: 'Validação fiscal concluída',
+    bodyHtml: `
+      ${paragraph(`Olá <strong>${e(props.ownerName)}</strong>,`)}
+      ${paragraph('A equipa Ekanda validou o NIF de <strong>' + e(props.schoolName) + '</strong>.')}
+      ${highlightBox('<strong>NIF:</strong> ' + e(props.nif))}
+      ${paragraph('Pode consultar o estado na área Jurídica do painel.')}
+      ${mailButton(props.juridicoUrl, 'Abrir área Jurídica')}
+    `,
+  });
+  return { subject, html, text };
+}
+
+export function schoolNifRejected(props: {
+  ownerName: string;
+  schoolName: string;
+  reason: string;
+  juridicoUrl: string;
+}): RenderedEmail {
+  const subject = 'NIF não validado — acção necessária';
+  const text = `Olá ${props.ownerName},\n\nO NIF de "${props.schoolName}" não foi validado.\nMotivo: ${props.reason}\n${props.juridicoUrl}\n— Ekanda`;
+  const html = mailLayout({
+    preview: 'NIF não validado',
+    title: 'Validação fiscal recusada',
+    bodyHtml: `
+      ${paragraph(`Olá <strong>${e(props.ownerName)}</strong>,`)}
+      ${paragraph('A validação do NIF de <strong>' + e(props.schoolName) + '</strong> não foi aceite.')}
+      ${highlightBox('<strong>Motivo:</strong><br/>' + e(props.reason))}
+      ${paragraph('Corrija e submeta novamente na área Jurídica.')}
+      ${mailButton(props.juridicoUrl, 'Abrir área Jurídica')}
+    `,
+  });
+  return { subject, html, text };
+}
+
 export function schoolNifDeadlineReminder(props: {
   ownerName: string;
   schoolName: string;

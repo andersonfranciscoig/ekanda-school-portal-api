@@ -20,7 +20,9 @@ import { Roles } from '../../../../identity/infrastructure/auth/roles.decorator'
 import { RolesGuard } from '../../../../identity/infrastructure/auth/roles.guard';
 import { SchoolLegalService } from '../../../application/school-legal.service';
 import {
+  AdminLegalSchoolsQueryDto,
   LegalAuditQueryDto,
+  RejectNifBodyDto,
   VerifyNifManualBodyDto,
 } from '../dto/school-legal.http-dto';
 
@@ -31,6 +33,18 @@ import {
 @ApiBearerAuth('access-token')
 export class SchoolLegalAdminController {
   constructor(private readonly legal: SchoolLegalService) {}
+
+  @Get('legal/summary')
+  @ApiOperation({ summary: 'Resumo de estados jurídicos (NIF)' })
+  async getSummary() {
+    return ok(await this.legal.getLegalSummary(), 'Legal summary fetched');
+  }
+
+  @Get('legal/schools')
+  @ApiOperation({ summary: 'Lista de colégios por estado jurídico (NIF)' })
+  async listSchools(@Query() query: AdminLegalSchoolsQueryDto) {
+    return ok(await this.legal.listSchoolsForAdmin(query), 'Legal schools listed');
+  }
 
   @Get('schools/:schoolId/legal')
   @ApiOperation({ summary: 'Estado jurídico do colégio (admin)' })
@@ -53,6 +67,20 @@ export class SchoolLegalAdminController {
         name: user.email,
       }),
       'NIF verified manually',
+    );
+  }
+
+  @Post('schools/:schoolId/legal/nif/reject')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rejeitar NIF submetido com motivo' })
+  async rejectNif(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() body: RejectNifBodyDto,
+  ) {
+    return ok(
+      await this.legal.rejectNif(schoolId, { userId: user.id, name: user.email }, body.reason),
+      'NIF rejected',
     );
   }
 

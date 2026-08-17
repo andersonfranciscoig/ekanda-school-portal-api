@@ -98,6 +98,26 @@ export type SchoolLegalAuditDto = {
   createdAt: string;
 };
 
+export type AdminLegalSchoolListItemDto = {
+  schoolId: string;
+  schoolName: string;
+  schoolStatus: string;
+  ownerEmail: string | null;
+  nif: string | null;
+  nifStatus: SchoolNifStatus;
+  submittedAt: string | null;
+  verifiedAt: string | null;
+  verifiedByName: string | null;
+  rejectionReason: string | null;
+};
+
+export type AdminLegalSummaryDto = {
+  pendingVerification: number;
+  verified: number;
+  notSubmitted: number;
+  rejected: number;
+};
+
 function parseSectionUnread(value: unknown): SectionUnread {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as SectionUnread;
@@ -289,6 +309,23 @@ export class SchoolLegalService {
       },
     });
 
+    const ownerMembership = await this.prisma.schoolMembership.findFirst({
+      where: {
+        schoolId,
+        role: SchoolMembershipRole.OWNER,
+        status: 'ACTIVE',
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    this.mail.sendSchoolNifSubmittedOps({
+      schoolId,
+      schoolName: school.name,
+      nif: normalized,
+      ownerEmail: ownerMembership?.user.email ?? '—',
+    });
+
     return presentOverview(schoolId, profile);
   }
 
@@ -329,6 +366,11 @@ export class SchoolLegalService {
     const profile = await this.prisma.schoolLegalProfile.findUnique({
       where: { schoolId },
     });
+    if (!profile?.nif || profile.nifStatus !== SchoolNifStatus.SUBMITTED) {
+      throw new BadRequestException(
+        'Só é possível validar NIF que esteja no estado SUBMITTED (aguarda validação).',
+      );
+    }
 
     const now = new Date();
     const unread = parseSectionUnread(profile?.sectionUnread ?? {});
@@ -373,16 +415,215 @@ export class SchoolLegalService {
       },
     });
 
-    if (updated.ownerUserId) {
-      await this.createLegalNotification({
-        userId: updated.ownerUserId,
+    const ownerMembership = await this.prisma.schoolMembership.findFirst({
+      where: {
         schoolId,
-        title: 'Validação fiscal actualizada',
-        body: 'A equipa Ekanda concluiu a validação do NIF do seu colégio. Consulte o estado na área Jurídica.',
+        role: SchoolMembershipRole.OWNER,
+        status: 'ACTIVE',
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const owner = ownerMembership?.user;
+
+    if (owner?.id) {
+      await this.createLegalNotification({
+        userId: owner.id,
+        schoolId,
+        title: 'NIF validado',
+        body: 'A equipa Ekanda validou o NIF do seu colégio. Consulte o estado na área Jurídica.',
+      });
+    }
+
+    if (owner?.email && updated.nif) {
+      this.mail.sendSchoolNifVerified({
+        email: owner.email,
+        ownerName: owner.firstName?.trim() || owner.email,
+        schoolName: school.name,
+        nif: updated.nif,
       });
     }
 
     return presentOverview(schoolId, updated);
+  }
+
+  async rejectNif(
+    schoolId: string,
+    admin: { userId: string; name: string },
+    reason: string,
+  ): Promise<SchoolLegalOverviewDto> {
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      throw new BadRequestException('Indique um motivo com pelo menos 5 caracteres.');
+    }
+
+    const school = await this.prisma.school.findUnique({ where: { id: schoolId } });
+    if (!school) throw new NotFoundException('Colégio não encontrado.');
+
+    const existing = await this.prisma.schoolLegalProfile.findUnique({
+      where: { schoolId },
+    });
+    if (!existing?.nif || existing.nifStatus !== SchoolNifStatus.SUBMITTED) {
+      throw new BadRequestException(
+        'Só é possível rejeitar NIF que esteja aguardando validação (SUBMITTED).',
+      );
+    }
+
+    const unread = parseSectionUnread(existing.sectionUnread);
+    unread[LEGAL_SECTION_NIF.id] = true;
+
+    const updated = await this.prisma.schoolLegalProfile.update({
+      where: { schoolId },
+      data: {
+        nifStatus: SchoolNifStatus.REJECTED,
+        rejectionReason: trimmed,
+        verifiedAt: null,
+        verifiedByUserId: null,
+        verifiedByName: null,
+        verificationMode: null,
+        sectionUnread: unread as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.audit.log({
+      actorUserId: admin.userId,
+      action: 'NIF_REJECTED',
+      entity: 'SCHOOL_LEGAL',
+      entityId: schoolId,
+      metadata: {
+        nif: updated.nif,
+        entityLabel: school.name,
+        reason: trimmed,
+        actorName: admin.name,
+      },
+    });
+
+    const ownerMembership = await this.prisma.schoolMembership.findFirst({
+      where: {
+        schoolId,
+        role: SchoolMembershipRole.OWNER,
+        status: 'ACTIVE',
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const owner = ownerMembership?.user;
+
+    if (owner?.id) {
+      await this.createLegalNotification({
+        userId: owner.id,
+        schoolId,
+        title: 'NIF não validado',
+        body: `A validação do NIF do colégio foi recusada. Motivo: ${trimmed}`,
+      });
+    }
+
+    if (owner?.email) {
+      this.mail.sendSchoolNifRejected({
+        email: owner.email,
+        ownerName: owner.firstName?.trim() || owner.email,
+        schoolName: school.name,
+        reason: trimmed,
+      });
+    }
+
+    return presentOverview(schoolId, updated);
+  }
+
+  async getLegalSummary(): Promise<AdminLegalSummaryDto> {
+    const [pendingVerification, verified, notSubmitted, rejected] = await Promise.all([
+      this.prisma.schoolLegalProfile.count({
+        where: { nifStatus: SchoolNifStatus.SUBMITTED },
+      }),
+      this.prisma.schoolLegalProfile.count({
+        where: { nifStatus: SchoolNifStatus.VERIFIED },
+      }),
+      this.prisma.schoolLegalProfile.count({
+        where: { nifStatus: SchoolNifStatus.NOT_SUBMITTED },
+      }),
+      this.prisma.schoolLegalProfile.count({
+        where: { nifStatus: SchoolNifStatus.REJECTED },
+      }),
+    ]);
+
+    return { pendingVerification, verified, notSubmitted, rejected };
+  }
+
+  async listSchoolsForAdmin(input?: {
+    nifStatus?: SchoolNifStatus;
+    q?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = Math.max(1, input?.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, input?.pageSize ?? 20));
+    const skip = (page - 1) * pageSize;
+    const q = input?.q?.trim();
+
+    const where: Prisma.SchoolLegalProfileWhereInput = {
+      ...(input?.nifStatus ? { nifStatus: input.nifStatus } : {}),
+      ...(q
+        ? {
+            OR: [
+              { nif: { contains: q, mode: 'insensitive' } },
+              {
+                school: {
+                  OR: [
+                    { name: { contains: q, mode: 'insensitive' } },
+                    {
+                      memberships: {
+                        some: {
+                          role: SchoolMembershipRole.OWNER,
+                          user: { email: { contains: q, mode: 'insensitive' } },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.schoolLegalProfile.findMany({
+        where,
+        include: {
+          school: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              memberships: {
+                where: { role: SchoolMembershipRole.OWNER, status: 'ACTIVE' },
+                take: 1,
+                include: { user: { select: { email: true } } },
+              },
+            },
+          },
+        },
+        orderBy: [{ submittedAt: 'desc' }, { updatedAt: 'desc' }],
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.schoolLegalProfile.count({ where }),
+    ]);
+
+    const items: AdminLegalSchoolListItemDto[] = rows.map((row) => ({
+      schoolId: row.schoolId,
+      schoolName: row.school.name,
+      schoolStatus: row.school.status,
+      ownerEmail: row.school.memberships[0]?.user.email ?? null,
+      nif: row.nif,
+      nifStatus: row.nifStatus,
+      submittedAt: row.submittedAt?.toISOString() ?? null,
+      verifiedAt: row.verifiedAt?.toISOString() ?? null,
+      verifiedByName: row.verifiedByName,
+      rejectionReason: row.rejectionReason,
+    }));
+
+    return { items, total, page, pageSize };
   }
 
   async notifySchoolApproved(schoolId: string) {

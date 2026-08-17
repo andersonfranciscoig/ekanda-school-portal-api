@@ -28,6 +28,7 @@ const ACTION_LABELS: Record<string, string> = {
   SCHOOL_UPDATED: 'Actualizou o colégio',
   NIF_SUBMITTED: 'Submeteu o NIF',
   NIF_VERIFIED_MANUAL: 'Validou NIF manualmente',
+  NIF_REJECTED: 'Rejeitou NIF',
   NIF_DEADLINE_EXPIRED: 'Prazo NIF expirado — colégio suspenso',
 };
 

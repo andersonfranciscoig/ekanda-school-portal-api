@@ -197,6 +197,56 @@ export class MailService {
     );
   }
 
+  sendSchoolNifSubmittedOps(input: {
+    schoolId: string;
+    schoolName: string;
+    nif: string;
+    ownerEmail: string;
+  }) {
+    const rendered = T.schoolNifSubmittedOps({
+      schoolName: input.schoolName,
+      nif: input.nif,
+      ownerEmail: input.ownerEmail,
+      adminUrl: `${this.frontendUrl}${this.adminBasePath}/juridico`,
+    });
+    this.dispatch(
+      this.send({ email: this.opsEmail, name: 'Ekanda Ops' }, rendered, 'school.nif-submitted-ops'),
+      'school.nif-submitted-ops',
+    );
+  }
+
+  sendSchoolNifVerified(input: {
+    email: string;
+    ownerName: string;
+    schoolName: string;
+    nif: string;
+  }) {
+    const rendered = T.schoolNifVerified({
+      ...input,
+      juridicoUrl: `${this.frontendUrl}/dashboard/juridico/nif`,
+    });
+    this.dispatch(
+      this.send({ email: input.email, name: input.ownerName }, rendered, 'school.nif-verified'),
+      'school.nif-verified',
+    );
+  }
+
+  sendSchoolNifRejected(input: {
+    email: string;
+    ownerName: string;
+    schoolName: string;
+    reason: string;
+  }) {
+    const rendered = T.schoolNifRejected({
+      ...input,
+      juridicoUrl: `${this.frontendUrl}/dashboard/juridico/nif`,
+    });
+    this.dispatch(
+      this.send({ email: input.email, name: input.ownerName }, rendered, 'school.nif-rejected'),
+      'school.nif-rejected',
+    );
+  }
+
   sendSchoolNifDeadlineReminder(input: {
     email: string;
     ownerName: string;
