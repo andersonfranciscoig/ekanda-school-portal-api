@@ -107,3 +107,51 @@ export function schoolStatusChanged(props: {
   });
   return { subject, html, text };
 }
+
+export function schoolLegalApproved(props: {
+  ownerName: string;
+  schoolName: string;
+  juridicoUrl: string;
+}): RenderedEmail {
+  const subject = 'Cadastro aprovado — consulte a área Jurídica';
+  const text = `Olá ${props.ownerName},\n\nO colégio "${props.schoolName}" foi aprovado. Consulte a validação fiscal (NIF) na área Jurídica:\n${props.juridicoUrl}\n— Ekanda`;
+  const html = mailLayout({
+    preview: 'Cadastro aprovado — validação fiscal',
+    title: 'Cadastro aprovado',
+    bodyHtml: `
+      ${paragraph(`Olá <strong>${e(props.ownerName)}</strong>,`)}
+      ${paragraph('O perfil de <strong>' + e(props.schoolName) + '</strong> foi aprovado pela equipa Ekanda.')}
+      ${paragraph('Consulte ou submeta o NIF da instituição na área Jurídica do painel do colégio.')}
+      ${mailButton(props.juridicoUrl, 'Abrir área Jurídica')}
+    `,
+  });
+  return { subject, html, text };
+}
+
+export function schoolNifDeadlineReminder(props: {
+  ownerName: string;
+  schoolName: string;
+  daysRemaining: number;
+  deadlineLabel: string;
+  juridicoUrl: string;
+}): RenderedEmail {
+  const subject = `Prazo NIF — faltam ${props.daysRemaining} dias`;
+  const text = `Olá ${props.ownerName},\n\nSubmeta o NIF de "${props.schoolName}" até ${props.deadlineLabel}. Caso contrário, o colégio será suspenso.\n${props.juridicoUrl}\n— Ekanda`;
+  const html = mailLayout({
+    preview: `Faltam ${props.daysRemaining} dias para submeter o NIF`,
+    title: 'Prazo para submissão do NIF',
+    bodyHtml: `
+      ${paragraph(`Olá <strong>${e(props.ownerName)}</strong>,`)}
+      ${paragraph('O colégio <strong>' + e(props.schoolName) + '</strong> ainda não submeteu o NIF na área Jurídica.')}
+      ${highlightBox(
+        'Faltam <strong>' +
+          e(String(props.daysRemaining)) +
+          ' dias</strong> (até ' +
+          e(props.deadlineLabel) +
+          '). Sem submissão, o colégio será <strong>suspenso</strong> e deixará de estar visível no marketplace.',
+      )}
+      ${mailButton(props.juridicoUrl, 'Submeter NIF agora')}
+    `,
+  });
+  return { subject, html, text };
+}

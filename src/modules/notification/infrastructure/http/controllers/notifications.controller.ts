@@ -3,6 +3,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -14,11 +15,15 @@ import { CurrentUser } from '../../../../../shared/infrastructure/http/current-u
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
 import { GestaoRolloutService } from '../../../../gestao-rollout/application/gestao-rollout.service';
+import { SchoolLegalService } from '../../../../school-legal/application/school-legal.service';
 
 @ApiTags('notifications')
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly gestao: GestaoRolloutService) {}
+  constructor(
+    private readonly gestao: GestaoRolloutService,
+    private readonly legal: SchoolLegalService,
+  ) {}
 
   @Get('gestao')
   @UseGuards(JwtAuthGuard)
@@ -31,6 +36,14 @@ export class NotificationsController {
     );
   }
 
+  @Get('legal')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Notificações jurídicas para o utilizador autenticado' })
+  async listLegal(@CurrentUser() user: AuthUser) {
+    return ok(await this.legal.listLegalNotifications(user.id), 'Legal notifications listed');
+  }
+
   @Post(':id/read')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
@@ -40,6 +53,13 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
   ) {
-    return ok(await this.gestao.markNotificationRead(id, user.id), 'Notification marked as read');
+    try {
+      return ok(await this.legal.markNotificationRead(id, user.id), 'Notification marked as read');
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return ok(await this.gestao.markNotificationRead(id, user.id), 'Notification marked as read');
+      }
+      throw error;
+    }
   }
 }

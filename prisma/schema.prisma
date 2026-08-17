@@ -106,6 +106,7 @@ enum NotificationType {
   SCHOOL
   SECURITY
   GESTAO
+  LEGAL
 }
 
 /// Turnos de turma / candidatura (contrato FE: Manhã/Tarde/Noite/Duplo).
@@ -298,6 +299,7 @@ model School {
   conciergeVisits ConciergeVisit[]
   wallets         Wallet[]
   gestaoWaitlist  GestaoWaitlistEntry?
+  legalProfile    SchoolLegalProfile?
   profileViews    SchoolProfileView[]
 
   @@index([slug])
@@ -966,6 +968,18 @@ enum GestaoWaitlistStatus {
   REJECTED
 }
 
+enum SchoolNifStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+enum SchoolNifVerificationMode {
+  MANUAL
+  AUTOMATIC
+}
+
 /// Configuração global (singleton — id fixo "default").
 model GestaoModuleConfig {
   id          String            @id @default("default")
@@ -1000,6 +1014,32 @@ model GestaoWaitlistEntry {
   @@index([ownerUserId])
   @@index([createdAt])
   @@map("gestao_waitlist_entries")
+}
+
+model SchoolLegalProfile {
+  id               String                     @id @default(uuid()) @db.Uuid
+  schoolId         String                     @unique @db.Uuid
+  ownerUserId      String?                    @db.Uuid
+  nif              String?                    @unique
+  nifStatus        SchoolNifStatus            @default(NOT_SUBMITTED)
+  submittedAt      DateTime?
+  consentAt        DateTime?
+  verifiedAt       DateTime?
+  verifiedByUserId String?                    @db.Uuid
+  verifiedByName   String?
+  verificationMode SchoolNifVerificationMode?
+  rejectionReason  String?
+  lookupSnapshot   Json?
+  sectionUnread    Json                       @default("{}")
+  nifDeadlineAt    DateTime?
+  nifReminderSentAt DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([nifStatus])
+  @@map("school_legal_profiles")
 }
 
 // ---------------------------------------------------------------------------

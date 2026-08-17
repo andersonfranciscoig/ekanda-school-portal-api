@@ -181,6 +181,48 @@ export class MailService {
     );
   }
 
+  sendSchoolLegalApproved(input: {
+    email: string;
+    ownerName: string;
+    schoolName: string;
+  }) {
+    const rendered = T.schoolLegalApproved({
+      ownerName: input.ownerName,
+      schoolName: input.schoolName,
+      juridicoUrl: `${this.frontendUrl}/dashboard/juridico`,
+    });
+    this.dispatch(
+      this.send({ email: input.email, name: input.ownerName }, rendered, 'school.legal-approved'),
+      'school.legal-approved',
+    );
+  }
+
+  sendSchoolNifDeadlineReminder(input: {
+    email: string;
+    ownerName: string;
+    schoolName: string;
+    daysRemaining: number;
+    deadlineAt: Date;
+  }) {
+    const deadlineLabel = input.deadlineAt.toLocaleDateString('pt-AO', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    const rendered = T.schoolNifDeadlineReminder({
+      ownerName: input.ownerName,
+      schoolName: input.schoolName,
+      daysRemaining: input.daysRemaining,
+      deadlineLabel,
+      juridicoUrl: `${this.frontendUrl}/dashboard/juridico/nif`,
+    });
+    this.dispatch(
+      this.send({ email: input.email, name: input.ownerName }, rendered, 'school.nif-deadline'),
+      'school.nif-deadline',
+    );
+  }
+
   sendSchoolRejected(input: {
     email: string;
     ownerName: string;

@@ -13,6 +13,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AdministrationModule } from './modules/administration/administration.module';
 import { GestaoRolloutModule } from './modules/gestao-rollout/gestao-rollout.module';
+import { SchoolLegalModule } from './modules/school-legal/school-legal.module';
 import { PlatformBetaModule } from './modules/platform-beta/platform-beta.module';
 import { MailModule } from './modules/mail/mail.module';
 
@@ -31,6 +32,7 @@ import { MailModule } from './modules/mail/mail.module';
     ApplicationModule,
     BillingModule,
     GestaoRolloutModule,
+    SchoolLegalModule,
     PlatformBetaModule,
     MailModule,
     NotificationModule,

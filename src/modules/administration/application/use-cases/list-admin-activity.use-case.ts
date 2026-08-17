@@ -26,6 +26,9 @@ const ACTION_LABELS: Record<string, string> = {
   SUBSCRIPTION_EXPIRED: 'Subscrição expirou',
   SCHOOL_CREATED: 'Criou o colégio',
   SCHOOL_UPDATED: 'Actualizou o colégio',
+  NIF_SUBMITTED: 'Submeteu o NIF',
+  NIF_VERIFIED_MANUAL: 'Validou NIF manualmente',
+  NIF_DEADLINE_EXPIRED: 'Prazo NIF expirado — colégio suspenso',
 };
 
 const STATUS_LABELS: Record<string, string> = {
