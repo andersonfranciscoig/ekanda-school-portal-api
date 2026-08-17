@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Res,
   UploadedFiles,
@@ -51,6 +52,7 @@ import { CreateOrUpdateSchoolClassHttpDto } from '../dto/create-or-update-school
 import { SyncSchoolServicesHttpDto } from '../dto/sync-school-services.http-dto';
 import { CreateOrUpdateSchoolPriceHttpDto } from '../dto/create-or-update-school-price.http-dto';
 import { CreateOrUpdateSchoolGalleryHttpDto } from '../dto/create-or-update-school-gallery.http-dto';
+import { UpdatePublicProfileLayoutHttpDto } from '../dto/update-public-profile-layout.http-dto';
 import { SchoolHttpQueryService } from '../school-http-query.service';
 import { UploadFileInput } from '../../../../../shared/application/ports/file-storage.port';
 
@@ -588,6 +590,23 @@ export class SchoolsController {
       actorUserId: user.id,
     });
     return ok(data, 'School dashboard');
+  }
+
+  @Patch(':schoolId/public-profile-layout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Escolher o layout do perfil público (CLASSIC, EDITORIAL, CAMPUS)' })
+  async updatePublicProfileLayout(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdatePublicProfileLayoutHttpDto,
+  ) {
+    const data = await this.queries.updatePublicProfileLayout(
+      schoolId,
+      user.id,
+      dto.layout,
+    );
+    return ok(data, 'Public profile layout updated');
   }
 
   @Get(':id')

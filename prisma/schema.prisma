@@ -47,6 +47,12 @@ enum InstitutionType {
   PRIVATE
 }
 
+enum SchoolPublicProfileLayout {
+  CLASSIC
+  EDITORIAL
+  CAMPUS
+}
+
 enum SubscriptionStatus {
   PENDING
   ACTIVE
@@ -275,6 +281,7 @@ model School {
   approximateStudents Int?
   instagram           String?
   facebook            String?
+  publicProfileLayout SchoolPublicProfileLayout @default(CLASSIC)
   servicesConfiguredAt DateTime?
   submittedForReviewAt DateTime?
   rejectionReason      String?

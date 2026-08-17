@@ -8,6 +8,7 @@ import {
   MembershipStatus,
   Prisma,
   SchoolMembershipRole,
+  SchoolPublicProfileLayout,
   SchoolServiceCatalogId as PrismaSchoolServiceCatalogId,
   SchoolStatus,
 } from '@prisma/client';
@@ -370,10 +371,29 @@ export class SchoolHttpQueryService {
     }
 
     if (roles?.length && !roles.includes(membership.role)) {
-      throw new ForbiddenException('Permissão insuficiente neste colégio');
+      throw new ForbiddenException('Sem permissão para esta acção.');
     }
 
     return membership;
+  }
+
+  async updatePublicProfileLayout(
+    schoolId: string,
+    userId: string,
+    layout: SchoolPublicProfileLayout,
+  ) {
+    await this.assertMembership(schoolId, userId, [
+      SchoolMembershipRole.OWNER,
+      SchoolMembershipRole.ADMIN,
+    ]);
+
+    const school = await this.prisma.school.update({
+      where: { id: schoolId },
+      data: { publicProfileLayout: layout },
+      select: { id: true, slug: true, publicProfileLayout: true },
+    });
+
+    return school;
   }
 
   private presentSchoolDetail(
