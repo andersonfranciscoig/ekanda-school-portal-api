@@ -456,6 +456,10 @@ export class GestaoRolloutService {
         metadata: {
           schoolId: item.schoolId,
           testUrl: item.testUrl,
+          audience: 'school',
+          source: 'gestao',
+          href: '/dashboard/planos',
+          ...(item.testUrl ? { externalUrl: item.testUrl } : {}),
         },
       })),
     });

@@ -74,7 +74,7 @@ export class ExpireSubscriptionUseCase
             title: 'Subscrição expirada',
             message:
               'A subscrição Ekanda expirou. Renove o plano para voltar a receber candidaturas e funcionalidades pagas.',
-            metadata: { subscriptionId: subscription.id },
+            metadata: { subscriptionId: subscription.id, audience: 'school', source: 'pagamento', href: '/dashboard/pagamentos' },
           })),
         });
       }

@@ -53,11 +53,19 @@ describe('ChangeSchoolStatusUseCase', () => {
       findById: jest.fn().mockResolvedValue(makePlan()),
     };
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
+    const mail = { sendSchoolStatusChanged: jest.fn() };
+    const recipients = { schoolOwner: jest.fn().mockResolvedValue(null) };
+    const notifications = {
+      notifySchoolMembers: jest.fn().mockResolvedValue(undefined),
+    };
     const useCase = new ChangeSchoolStatusUseCase(
       schools as never,
       subscriptions as never,
       plans as never,
       audit as never,
+      mail as never,
+      recipients as never,
+      notifications as never,
     );
     return { school, schools, subscriptions, plans, audit, useCase };
   }

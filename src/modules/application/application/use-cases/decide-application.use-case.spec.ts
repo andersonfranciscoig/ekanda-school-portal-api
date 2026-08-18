@@ -13,6 +13,7 @@ describe('Decide application', () => {
 
   const detailRow = {
     id: applicationId,
+    guardianId: 'g1',
     status: ApplicationStatus.ACCEPTED,
     submittedAt: new Date('2026-08-11T10:00:00.000Z'),
     reviewedAt: new Date('2026-08-11T11:00:00.000Z'),
@@ -37,6 +38,12 @@ describe('Decide application', () => {
     statusHistory: [],
   };
 
+  const mail = {
+    sendApplicationAccepted: jest.fn(),
+    sendApplicationRejected: jest.fn(),
+  };
+  const notifications = { create: jest.fn().mockResolvedValue(undefined) };
+
   function prismaMock(currentStatus: ApplicationStatus) {
     return {
       application: {
@@ -58,6 +65,8 @@ describe('Decide application', () => {
     const useCase = new ApproveApplicationUseCase(
       access as never,
       prisma as never,
+      mail as never,
+      notifications as never,
     );
     const result = (await useCase.execute({
       actorUserId,
@@ -78,6 +87,8 @@ describe('Decide application', () => {
     const useCase = new ApproveApplicationUseCase(
       access as never,
       prisma as never,
+      mail as never,
+      notifications as never,
     );
     await expect(
       useCase.execute({ actorUserId, schoolId, applicationId }),
@@ -90,6 +101,8 @@ describe('Decide application', () => {
     const useCase = new RejectApplicationUseCase(
       access as never,
       prisma as never,
+      mail as never,
+      notifications as never,
     );
     await useCase.execute({
       actorUserId,
@@ -116,6 +129,8 @@ describe('Decide application', () => {
     const useCase = new RejectApplicationUseCase(
       { assertCanManageSchool: jest.fn() } as never,
       { application: {} } as never,
+      mail as never,
+      notifications as never,
     );
     await expect(
       useCase.execute({
@@ -134,6 +149,8 @@ describe('Decide application', () => {
     const useCase = new ApproveApplicationUseCase(
       { assertCanManageSchool: jest.fn().mockResolvedValue({}) } as never,
       prisma as never,
+      mail as never,
+      notifications as never,
     );
     await expect(
       useCase.execute({ actorUserId, schoolId, applicationId }),

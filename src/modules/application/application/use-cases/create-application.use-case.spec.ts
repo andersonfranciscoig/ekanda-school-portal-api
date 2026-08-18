@@ -13,9 +13,18 @@ describe('CreateApplicationUseCase entitlements', () => {
       student: { findUnique: jest.fn() },
       application: { create: jest.fn() },
     };
+    const mail = { sendApplicationSubmittedSchool: jest.fn() };
+    const recipients = { schoolOwner: jest.fn().mockResolvedValue(null) };
+    const notifications = {
+      notifySchoolMembers: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn().mockResolvedValue(undefined),
+    };
     const useCase = new CreateApplicationUseCase(
       entitlements as never,
       prisma as never,
+      mail as never,
+      recipients as never,
+      notifications as never,
     );
 
     await expect(
@@ -48,12 +57,24 @@ describe('CreateApplicationUseCase entitlements', () => {
           guardianId: 'user-1',
           status: 'SUBMITTED',
           submittedAt: new Date('2026-08-11T00:00:00.000Z'),
+          school: { id: 'school-1', name: 'Horizonte' },
+          student: { firstName: 'Ana', lastName: 'Correia' },
+          guardian: { firstName: 'Maria', lastName: 'Correia' },
         }),
       },
+    };
+    const mail = { sendApplicationSubmittedSchool: jest.fn() };
+    const recipients = { schoolOwner: jest.fn().mockResolvedValue(null) };
+    const notifications = {
+      notifySchoolMembers: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn().mockResolvedValue(undefined),
     };
     const useCase = new CreateApplicationUseCase(
       entitlements as never,
       prisma as never,
+      mail as never,
+      recipients as never,
+      notifications as never,
     );
 
     const result = await useCase.execute({

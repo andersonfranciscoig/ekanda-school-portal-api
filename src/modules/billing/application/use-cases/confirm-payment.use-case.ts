@@ -17,6 +17,8 @@ import { ConfirmSubscriptionPaymentService } from '../services/confirm-subscript
 import { MailService } from '../../../mail/application/mail.service';
 import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
+import { NotificationType } from '@prisma/client';
 import {
   presentPayment,
   presentSubscription,
@@ -43,6 +45,7 @@ export class ConfirmPaymentUseCase
     private readonly mail: MailService,
     private readonly recipients: MailRecipientsService,
     private readonly prisma: PrismaService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: ConfirmPaymentInput) {
@@ -85,6 +88,18 @@ export class ConfirmPaymentUseCase
           schoolName: school.name,
           planName: plan.name,
           amountLabel: `${amount.toLocaleString('pt-AO')} Kz`,
+        });
+        await this.notifications.notifyEkandaAdmins({
+          type: NotificationType.PAYMENT,
+          audience: 'admin',
+          source: 'pagamento',
+          title: 'Pagamento confirmado',
+          message: `${school.name} pagou o plano ${plan.name}.`,
+          href: '/portal-ops-7f3a/pagamentos',
+          metadata: {
+            schoolId: school.id,
+            paymentId: confirmed.payment.id,
+          },
         });
       }
     }

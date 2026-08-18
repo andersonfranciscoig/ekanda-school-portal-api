@@ -201,6 +201,9 @@ export class ConfirmSubscriptionPaymentService {
       metadata: {
         paymentId: params.payment.id,
         subscriptionId: params.subscription.id,
+        audience: 'school',
+        source: 'pagamento',
+        href: '/dashboard/pagamentos',
       },
     });
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, NotificationType } from '@prisma/client';
 import { UseCase } from '../../../../shared/application/use-case';
 import {
   BusinessRuleViolationException,
@@ -14,6 +14,7 @@ import {
   presentApplicationDetail,
 } from '../services/application.presenter';
 import { MailService } from '../../../mail/application/mail.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
 
 export type RejectApplicationInput = {
   actorUserId: string;
@@ -30,6 +31,7 @@ export class RejectApplicationUseCase
     private readonly access: SchoolAccessAuthorizer,
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: RejectApplicationInput) {
@@ -85,6 +87,17 @@ export class RejectApplicationUseCase
       schoolName: detail.school.name,
       applicationCode: code,
       reason,
+    });
+
+    await this.notifications.create({
+      userId: detail.guardianId,
+      type: NotificationType.APPLICATION,
+      audience: 'guardian',
+      source: 'candidatura',
+      title: 'Candidatura rejeitada',
+      message: `A candidatura ${code} de ${studentName} em ${detail.school.name} foi rejeitada. Motivo: ${reason}`,
+      href: `/encarregado/candidaturas/${code}`,
+      metadata: { applicationId: detail.id, applicationCode: code },
     });
 
     return presentApplicationDetail(detail);

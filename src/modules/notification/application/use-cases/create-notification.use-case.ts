@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { UseCase } from '../../../../shared/application/use-case';
+import {
+  CreateInAppNotificationInput,
+  InAppNotificationService,
+} from '../in-app-notification.service';
 
-/**
- * Use Case stub — lógica de domínio a implementar em etapa seguinte.
- */
 @Injectable()
-export class CreateNotificationUseCase implements UseCase<unknown, unknown> {
-  async execute(_input: unknown): Promise<unknown> {
-    throw new Error('CreateNotificationUseCase ainda não implementado');
+export class CreateNotificationUseCase
+  implements UseCase<CreateInAppNotificationInput, void>
+{
+  constructor(private readonly notifications: InAppNotificationService) {}
+
+  async execute(input: CreateInAppNotificationInput): Promise<void> {
+    await this.notifications.create(input);
   }
 }

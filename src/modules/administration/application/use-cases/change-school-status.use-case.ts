@@ -19,6 +19,8 @@ import {
 import { SchoolStatus } from '../../../school/domain/school.enums';
 import { MailService } from '../../../mail/application/mail.service';
 import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
+import { NotificationType } from '@prisma/client';
 
 const STATUS_LABEL: Partial<Record<SchoolStatus, string>> = {
   [SchoolStatus.SUSPENDED]: 'Suspenso',
@@ -67,6 +69,7 @@ export class ChangeSchoolStatusUseCase
     private readonly audit: AuditLogger,
     private readonly mail: MailService,
     private readonly recipients: MailRecipientsService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: ChangeSchoolStatusInput): Promise<ChangeSchoolStatusOutput> {
@@ -170,6 +173,20 @@ export class ChangeSchoolStatusUseCase
           reason,
         });
       }
+    }
+
+    if (to !== from) {
+      await this.notifications.notifySchoolMembers(school.id, {
+        type: NotificationType.SCHOOL,
+        audience: 'school',
+        source: 'platform',
+        title: `Estado do colégio: ${STATUS_LABEL[to] ?? to}`,
+        message: reason
+          ? `O estado de ${school.name} passou a ${STATUS_LABEL[to] ?? to}. Motivo: ${reason}`
+          : `O estado de ${school.name} passou a ${STATUS_LABEL[to] ?? to}.`,
+        href: '/dashboard',
+        metadata: { schoolId: school.id, from, to },
+      });
     }
 
     return {

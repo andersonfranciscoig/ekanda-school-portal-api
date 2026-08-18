@@ -3,7 +3,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -14,52 +13,62 @@ import { ok } from '../../../../../shared/application/api-response';
 import { CurrentUser } from '../../../../../shared/infrastructure/http/current-user.decorator';
 import { AuthUser } from '../../../../identity/infrastructure/auth/auth-user.type';
 import { JwtAuthGuard } from '../../../../identity/infrastructure/auth/jwt-auth.guard';
-import { GestaoRolloutService } from '../../../../gestao-rollout/application/gestao-rollout.service';
-import { SchoolLegalService } from '../../../../school-legal/application/school-legal.service';
+import { InAppNotificationService } from '../../../application/in-app-notification.service';
 
 @ApiTags('notifications')
 @Controller('notifications')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('access-token')
 export class NotificationsController {
-  constructor(
-    private readonly gestao: GestaoRolloutService,
-    private readonly legal: SchoolLegalService,
-  ) {}
+  constructor(private readonly notifications: InAppNotificationService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Notificações in-app do utilizador autenticado' })
+  async listMine(@CurrentUser() user: AuthUser) {
+    return ok(await this.notifications.listMine(user.id), 'Notifications listed');
+  }
+
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Número de notificações por ler' })
+  async unreadCount(@CurrentUser() user: AuthUser) {
+    return ok(
+      { count: await this.notifications.unreadCount(user.id) },
+      'Unread notification count',
+    );
+  }
 
   @Get('gestao')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Notificações do Plano Gestão para o utilizador autenticado' })
   async listGestao(@CurrentUser() user: AuthUser) {
     return ok(
-      await this.gestao.listGestaoNotifications(user.id),
+      await this.notifications.listGestaoNotifications(user.id),
       'Gestão notifications listed',
     );
   }
 
   @Get('legal')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Notificações jurídicas para o utilizador autenticado' })
   async listLegal(@CurrentUser() user: AuthUser) {
-    return ok(await this.legal.listLegalNotifications(user.id), 'Legal notifications listed');
+    return ok(
+      await this.notifications.listLegalNotifications(user.id),
+      'Legal notifications listed',
+    );
+  }
+
+  @Post('read-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Marcar todas as notificações como lidas' })
+  async markAllRead(@CurrentUser() user: AuthUser) {
+    return ok(await this.notifications.markAllRead(user.id), 'Notifications marked as read');
   }
 
   @Post(':id/read')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Marcar notificação como lida' })
   async markRead(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
   ) {
-    try {
-      return ok(await this.legal.markNotificationRead(id, user.id), 'Notification marked as read');
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        return ok(await this.gestao.markNotificationRead(id, user.id), 'Notification marked as read');
-      }
-      throw error;
-    }
+    return ok(await this.notifications.markRead(id, user.id), 'Notification marked as read');
   }
 }

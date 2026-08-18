@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Shift } from '@prisma/client';
+import { NotificationType, Shift } from '@prisma/client';
 import { UseCase } from '../../../../shared/application/use-case';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
 import { MailService } from '../../../mail/application/mail.service';
 import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
 import { applicationCode } from '../services/application.presenter';
 import { SchoolEntitlementService } from '../../../billing/application/services/school-entitlement.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
 import {
   BusinessRuleViolationException,
   EntityNotFoundException,
@@ -30,6 +31,7 @@ export class CreateApplicationUseCase
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private readonly recipients: MailRecipientsService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: CreateApplicationInput) {
@@ -92,18 +94,41 @@ export class CreateApplicationUseCase
     });
 
     const owner = await this.recipients.schoolOwner(input.schoolId);
+    const studentName = `${application.student.firstName} ${application.student.lastName}`.trim();
+    const guardianName = `${application.guardian.firstName} ${application.guardian.lastName}`.trim();
+    const code = applicationCode(application.id);
+
     if (owner) {
-      const studentName = `${application.student.firstName} ${application.student.lastName}`.trim();
-      const guardianName = `${application.guardian.firstName} ${application.guardian.lastName}`.trim();
       this.mail.sendApplicationSubmittedSchool({
         email: owner.email,
         schoolName: application.school.name,
         studentName,
         guardianName,
-        applicationCode: applicationCode(application.id),
+        applicationCode: code,
         schoolId: application.school.id,
       });
     }
+
+    await this.notifications.notifySchoolMembers(input.schoolId, {
+      type: NotificationType.APPLICATION,
+      audience: 'school',
+      source: 'candidatura',
+      title: 'Nova candidatura',
+      message: `${guardianName} submeteu a candidatura ${code} para ${studentName}.`,
+      href: '/dashboard/candidaturas',
+      metadata: { applicationId: application.id, applicationCode: code },
+    });
+
+    await this.notifications.create({
+      userId: input.actorUserId,
+      type: NotificationType.APPLICATION,
+      audience: 'guardian',
+      source: 'candidatura',
+      title: 'Candidatura enviada',
+      message: `A candidatura ${code} de ${studentName} foi enviada para ${application.school.name}.`,
+      href: `/encarregado/candidaturas/${code}`,
+      metadata: { applicationId: application.id, applicationCode: code },
+    });
 
     return {
       id: application.id,

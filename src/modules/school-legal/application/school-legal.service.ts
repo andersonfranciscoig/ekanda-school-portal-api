@@ -20,6 +20,7 @@ import {
 } from '../../../shared/application/ports/audit-logger.port';
 import { SchoolHttpQueryService } from '../../school/infrastructure/http/school-http-query.service';
 import { MailService } from '../../mail/application/mail.service';
+import { InAppNotificationService } from '../../notification/application/in-app-notification.service';
 import {
   autoNifVerificationEnabled,
   computeNifDeadline,
@@ -226,6 +227,7 @@ export class SchoolLegalService {
     private readonly prisma: PrismaService,
     private readonly schoolQueries: SchoolHttpQueryService,
     private readonly mail: MailService,
+    private readonly notifications: InAppNotificationService,
     @Inject(AUDIT_LOGGER)
     private readonly audit: AuditLogger,
   ) {}
@@ -324,6 +326,26 @@ export class SchoolLegalService {
       schoolName: school.name,
       nif: normalized,
       ownerEmail: ownerMembership?.user.email ?? '—',
+    });
+
+    await this.notifications.notifyEkandaAdmins({
+      type: NotificationType.LEGAL,
+      audience: 'admin',
+      source: 'legal',
+      title: 'NIF submetido — aguarda validação',
+      message: `${school.name} submeteu o NIF ${normalized}.`,
+      href: `/portal-ops-7f3a/colegios/${schoolId}`,
+      metadata: { schoolId, nif: normalized, sectionId: LEGAL_SECTION_NIF.id },
+    });
+
+    await this.notifications.notifySchoolMembers(schoolId, {
+      type: NotificationType.LEGAL,
+      audience: 'school',
+      source: 'legal',
+      title: 'NIF enviado para validação',
+      message: `O NIF de ${school.name} foi submetido. A equipa Ekanda irá validar junto da AGT.`,
+      href: '/dashboard/juridico/nif',
+      metadata: { schoolId, sectionId: LEGAL_SECTION_NIF.id },
     });
 
     return presentOverview(schoolId, profile);
@@ -835,17 +857,17 @@ export class SchoolLegalService {
     title: string;
     body: string;
   }) {
-    await this.prisma.notification.create({
-      data: {
-        id: randomUUID(),
-        userId: input.userId,
-        type: NotificationType.LEGAL,
-        title: input.title,
-        message: input.body,
-        metadata: {
-          schoolId: input.schoolId,
-          sectionId: LEGAL_SECTION_NIF.id,
-        } as Prisma.InputJsonValue,
+    await this.notifications.create({
+      userId: input.userId,
+      type: NotificationType.LEGAL,
+      audience: 'school',
+      source: 'legal',
+      title: input.title,
+      message: input.body,
+      href: '/dashboard/juridico/nif',
+      metadata: {
+        schoolId: input.schoolId,
+        sectionId: LEGAL_SECTION_NIF.id,
       },
     });
   }

@@ -12,6 +12,8 @@ import {
 import { SchoolStatus } from '../../../school/domain/school.enums';
 import { MailService } from '../../../mail/application/mail.service';
 import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
+import { NotificationType } from '@prisma/client';
 
 export type RejectSchoolInput = {
   schoolId: string;
@@ -37,6 +39,7 @@ export class RejectSchoolUseCase
     private readonly audit: AuditLogger,
     private readonly mail: MailService,
     private readonly recipients: MailRecipientsService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: RejectSchoolInput): Promise<RejectSchoolOutput> {
@@ -76,6 +79,16 @@ export class RejectSchoolUseCase
         reason: input.reason,
       });
     }
+
+    await this.notifications.notifySchoolMembers(school.id, {
+      type: NotificationType.SCHOOL,
+      audience: 'school',
+      source: 'platform',
+      title: 'Colégio rejeitado',
+      message: `O cadastro de ${school.name} foi rejeitado. Motivo: ${input.reason}`,
+      href: '/dashboard/meu-colegio',
+      metadata: { schoolId: school.id },
+    });
 
     return {
       schoolId: school.id,

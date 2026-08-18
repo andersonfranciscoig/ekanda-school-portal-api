@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ConciergeVisitStatus, Prisma } from '@prisma/client';
+import { ConciergeVisitStatus, NotificationType, Prisma } from '@prisma/client';
 import { UseCase } from '../../../../shared/application/use-case';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
 import { SchoolAccessAuthorizer } from '../../../school/application/services/school-access.authorizer';
@@ -8,6 +8,7 @@ import {
   ConciergeVisitNotFoundException,
 } from '../../domain/exceptions/concierge.exceptions';
 import { presentConciergeVisit } from '../../infrastructure/http/concierge-visit.presenter';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
 
 const schoolSelect = { id: true, name: true, slug: true } as const;
 
@@ -133,6 +134,7 @@ export class DecideConciergeVisitUseCase
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: SchoolAccessAuthorizer,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: DecideVisitInput) {
@@ -177,6 +179,22 @@ export class DecideConciergeVisitUseCase
             },
       include: { school: { select: schoolSelect } },
     });
+
+    if (updated.userId) {
+      const accepted = input.action === 'confirm';
+      await this.notifications.create({
+        userId: updated.userId,
+        type: NotificationType.SYSTEM,
+        audience: 'guardian',
+        source: 'visita',
+        title: accepted ? 'Visita confirmada' : 'Visita recusada',
+        message: accepted
+          ? `${updated.school.name} confirmou a visita ${updated.code} (${updated.date.toISOString().slice(0, 10)} às ${updated.time}).`
+          : `${updated.school.name} recusou a visita ${updated.code}. Motivo: ${updated.rejectionReason}`,
+        href: '/encarregado/visitas',
+        metadata: { visitId: updated.id, visitCode: updated.code, schoolId: updated.schoolId },
+      });
+    }
 
     return presentConciergeVisit(updated);
   }

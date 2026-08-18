@@ -12,6 +12,8 @@ import {
 import { SchoolStatus } from '../../../school/domain/school.enums';
 import { MailService } from '../../../mail/application/mail.service';
 import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
+import { NotificationType } from '@prisma/client';
 
 export type ApproveSchoolInput = {
   schoolId: string;
@@ -35,6 +37,7 @@ export class ApproveSchoolUseCase
     private readonly audit: AuditLogger,
     private readonly mail: MailService,
     private readonly recipients: MailRecipientsService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(input: ApproveSchoolInput): Promise<ApproveSchoolOutput> {
@@ -73,6 +76,16 @@ export class ApproveSchoolUseCase
         schoolSlug: school.slug.value,
       });
     }
+
+    await this.notifications.notifySchoolMembers(school.id, {
+      type: NotificationType.SCHOOL,
+      audience: 'school',
+      source: 'platform',
+      title: 'Colégio aprovado',
+      message: `O perfil de ${school.name} foi aprovado. Consulte a área Jurídica para a validação fiscal.`,
+      href: '/dashboard/juridico',
+      metadata: { schoolId: school.id },
+    });
 
     return { schoolId: school.id, status: school.status };
   }

@@ -10,6 +10,8 @@ import { SchoolStatus } from '../../domain/school.enums';
 import { SchoolAccessAuthorizer } from '../services/school-access.authorizer';
 import { MailService } from '../../../mail/application/mail.service';
 import { MailRecipientsService } from '../../../mail/application/mail-recipients.service';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
+import { NotificationType } from '@prisma/client';
 
 export type SubmitSchoolForActivationInput = {
   schoolId: string;
@@ -33,6 +35,7 @@ export class SubmitSchoolForActivationUseCase
     private readonly entitlements: SchoolEntitlementService,
     private readonly mail: MailService,
     private readonly recipients: MailRecipientsService,
+    private readonly notifications: InAppNotificationService,
   ) {}
 
   async execute(
@@ -79,6 +82,15 @@ export class SubmitSchoolForActivationUseCase
         schoolName: school.name,
         ownerEmail: owner?.email ?? '—',
         schoolId: school.id,
+      });
+      await this.notifications.notifyEkandaAdmins({
+        type: NotificationType.SCHOOL,
+        audience: 'admin',
+        source: 'platform',
+        title: 'Colégio em análise',
+        message: `${school.name} foi submetido para aprovação.`,
+        href: `/portal-ops-7f3a/colegios/${school.id}`,
+        metadata: { schoolId: school.id },
       });
     }
 

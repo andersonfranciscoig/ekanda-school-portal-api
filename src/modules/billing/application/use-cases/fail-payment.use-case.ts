@@ -55,7 +55,7 @@ export class FailPaymentUseCase implements UseCase<FailPaymentInput, unknown> {
           message:
             input.reason ??
             'O pagamento Multicaixa Express não foi concluído.',
-          metadata: { paymentId: payment.id },
+          metadata: { paymentId: payment.id, audience: 'school', source: 'pagamento', href: '/dashboard/pagamentos' },
         })),
       });
     }

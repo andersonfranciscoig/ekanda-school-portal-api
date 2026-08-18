@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ConciergeVisitStatus } from '@prisma/client';
+import { ConciergeVisitStatus, NotificationType } from '@prisma/client';
 import { UseCase } from '../../../../shared/application/use-case';
 import { PrismaService } from '../../../../shared/infrastructure/persistence/prisma/prisma.service';
 import {
@@ -9,6 +9,7 @@ import {
 } from '../../domain/exceptions/concierge.exceptions';
 import { ALLOWED_VISIT_TIMES } from '../../domain/concierge.types';
 import { presentConciergeVisit } from '../../infrastructure/http/concierge-visit.presenter';
+import { InAppNotificationService } from '../../../notification/application/in-app-notification.service';
 
 export type ScheduleConciergeVisitInput = {
   schoolId: string;
@@ -28,7 +29,10 @@ export type GetConciergeVisitInput = {
 export class ScheduleConciergeVisitUseCase
   implements UseCase<ScheduleConciergeVisitInput, unknown>
 {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: InAppNotificationService,
+  ) {}
 
   async execute(input: ScheduleConciergeVisitInput) {
     if (
@@ -66,6 +70,29 @@ export class ScheduleConciergeVisitUseCase
       },
       include: { school: { select: { id: true, name: true, slug: true } } },
     });
+
+    await this.notifications.notifySchoolMembers(school.id, {
+      type: NotificationType.SYSTEM,
+      audience: 'school',
+      source: 'visita',
+      title: 'Novo pedido de visita',
+      message: `${visit.contactName} pediu uma visita a ${school.name} (${visit.date.toISOString().slice(0, 10)} às ${visit.time}).`,
+      href: '/dashboard/visitas',
+      metadata: { visitId: visit.id, visitCode: visit.code, schoolId: school.id },
+    });
+
+    if (visit.userId) {
+      await this.notifications.create({
+        userId: visit.userId,
+        type: NotificationType.SYSTEM,
+        audience: 'guardian',
+        source: 'visita',
+        title: 'Pedido de visita enviado',
+        message: `O pedido ${visit.code} para ${school.name} foi enviado. Aguarde a confirmação do colégio.`,
+        href: '/encarregado/visitas',
+        metadata: { visitId: visit.id, visitCode: visit.code, schoolId: school.id },
+      });
+    }
 
     return presentConciergeVisit(visit);
   }
