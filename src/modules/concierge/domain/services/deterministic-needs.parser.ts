@@ -6,6 +6,12 @@ import {
   mergeNeeds,
   nextMissingField,
 } from '../concierge.types';
+import {
+  detectResultsTopic,
+  isOffTopicMessage,
+  isResultsFollowUpContext,
+  offTopicReply,
+} from './answer-from-results';
 
 const CLASS_PATTERNS: Array<{ re: RegExp; value: string }> = [
   { re: /\b(pr[eé]-?\s*escolar|pr[eé] escolar)\b/i, value: 'Pré-escolar' },
@@ -439,8 +445,35 @@ function askFor(field: string): string {
 export function parseConciergeTurnDeterministic(
   message: string,
   current: NeedsProfile,
+  options?: { hasResults?: boolean },
 ): ConciergeLlmResult {
   const text = message.trim();
+  const hasResults = Boolean(options?.hasResults);
+
+  if (isOffTopicMessage(text) && !isBrowseListIntent(text)) {
+    return {
+      needsPatch: {},
+      reply: offTopicReply(),
+      intent: 'off_topic',
+      actions: { shouldSearch: false, compareTop: null, softAdjust: null },
+      resultsTopic: null,
+    };
+  }
+
+  if (hasResults && isResultsFollowUpContext(text)) {
+    const topic = detectResultsTopic(text) ?? 'generic';
+    return {
+      needsPatch: {},
+      reply:
+        topic === 'distance'
+          ? 'A distância em km usa a sua localização e as coordenadas das instituições — vejo os valores nos resultados actuais.'
+          : 'Vou responder com base nas opções que já mostrei.',
+      intent: topic === 'distance' ? 'clarify' : 'answer_from_results',
+      actions: { shouldSearch: false, compareTop: null, softAdjust: null },
+      resultsTopic: topic,
+    };
+  }
+
   const awaiting = nextMissingField(current);
   const patch: Partial<NeedsProfile> = {};
 
@@ -567,6 +600,7 @@ export function parseConciergeTurnDeterministic(
         compareTop: null,
         softAdjust: null,
       },
+      resultsTopic: 'distance',
     };
   }
 

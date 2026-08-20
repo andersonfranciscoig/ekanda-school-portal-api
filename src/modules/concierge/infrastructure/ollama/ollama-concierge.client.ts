@@ -6,6 +6,7 @@ import {
   isNeedsReady,
   mergeNeeds,
   nextMissingField,
+  type ResultsAnswerTopic,
 } from '../../domain/concierge.types';
 import { parseConciergeTurnDeterministic } from '../../domain/services/deterministic-needs.parser';
 
@@ -46,8 +47,12 @@ export class OllamaConciergeClient {
     message: string,
     needs: NeedsProfile,
     history: ConciergeChatTurn[] = [],
+    options?: { hasResults?: boolean; resultIds?: string[] },
   ): Promise<ConciergeLlmResult> {
-    const deterministic = parseConciergeTurnDeterministic(message, needs);
+    const hasResults = Boolean(options?.hasResults);
+    const deterministic = parseConciergeTurnDeterministic(message, needs, {
+      hasResults,
+    });
 
     if (!this.isEnabled()) {
       return deterministic;
@@ -79,7 +84,7 @@ export class OllamaConciergeClient {
         .filter((m) => m.content.trim().length > 0)
         .slice(-10);
 
-      const system = this.buildSystemPrompt(awaiting);
+      const system = this.buildSystemPrompt(awaiting, hasResults);
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -111,10 +116,13 @@ export class OllamaConciergeClient {
               content: JSON.stringify({
                 currentNeeds: needs,
                 awaitingField: awaiting,
+                hasResults,
+                resultCount: options?.resultIds?.length ?? 0,
                 message,
                 readyHint: isNeedsReady(needs),
-                instruction:
-                  'Extrai o que o utilizador disse, actualiza needsPatch e responde de forma natural em reply.',
+                instruction: hasResults
+                  ? 'Há resultados na sessão. Se a pergunta for sobre essas escolas (gratuita, localização, comparação, etc.), usa intent=answer_from_results, shouldSearch=false e resultsTopic adequado. Só pesquisar de novo se o utilizador pedir NOVA procura ou mudar filtros de forma explícita.'
+                  : 'Extrai o que o utilizador disse, actualiza needsPatch e responde de forma natural em reply.',
               }),
             },
           ],
@@ -138,6 +146,7 @@ export class OllamaConciergeClient {
         this.normalizeLlmResult(parsed as ConciergeLlmResult, needs),
         deterministic,
         needs,
+        hasResults,
       );
     } catch (error) {
       this.logger.warn(
@@ -275,12 +284,15 @@ Responde APENAS JSON:
 }`;
   }
 
-  private buildSystemPrompt(awaiting: string | null): string {
+  private buildSystemPrompt(
+    awaiting: string | null,
+    hasResults = false,
+  ): string {
     return `És o Ekanda Concierge — assistente de conversa da plataforma Ekanda (Angola).
 
 ## Propósito (não saias disto)
 Ajudas encarregados de educação a encontrar escolas e colégios (instituições públicas e privadas) que correspondam às necessidades da família.
-Não és um chatbot genérico. Se o utilizador falar de algo fora deste propósito (política, código, piadas longas, outros temas), responde com empatia numa frase e redirecciona para a procura de escola ou colégio.
+Não és um chatbot genérico. Se o utilizador falar de algo fora deste propósito (política, código, piadas longas, outros temas), responde com empatia numa frase e redirecciona para a procura de escola ou colégio — intent=off_topic, shouldSearch=false.
 
 ## Tom de conversa
 - Português de Angola, natural e caloroso — como um consultor humano, não um formulário.
@@ -289,6 +301,18 @@ Não és um chatbot genérico. Se o utilizador falar de algo fora deste propósi
 - 1–3 frases curtas na reply. Sem listas longas, sem markdown pesado, sem inventar nomes de escolas ou preços.
 - Nunca digas que és um modelo de IA / Ollama / Nemotron.
 
+## Fase actual
+${
+  hasResults
+    ? `JÁ EXISTEM RESULTADOS nesta sessão (hasResults=true).
+- Perguntas sobre essas escolas ("qual é gratuita?", "onde fica?", "qual está mais perto?", "tem transporte?", "a primeira", "compara", "quero visitar", "agendar visita") →
+  intent=answer_from_results, shouldSearch=false, resultsTopic=free|location|distance|transport|cantina|cheapest|closest|rating|vacancies|services|about|compare|how_to_apply|schedule_visit|generic.
+- NÃO inventes preços nem localizações — o servidor completa a resposta com dados reais.
+- NÃO cries needsPatch.precoMax=0 só porque perguntaram "qual é gratuita" ENTRE as opções.
+- Só pesquisar de novo se pedirem NOVA lista / mudar zona / "outras opções" / filtros novos explícitos.`
+    : 'Ainda sem resultados — recolhe necessidades e pesquisa quando estiver pronto.'
+}
+
 ## Recolha de necessidades
 Campos mínimos normais: município/província → classe → orçamento (precoMax em Kz) → transporte (sim/não).
 Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno, browseWide.
@@ -296,7 +320,7 @@ Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno, browseWi
 - Quando faltar algo, prioriza o campo: ${awaiting ?? 'nenhum (já podes pesquisar)'}.
 - EXCEPÇÃO — pergunta de distância/km sobre resultados já mostrados:
   "quantos km", "distância", "de acordo com a minha localização" →
-  NÃO pesquisar de novo. intent=clarify, shouldSearch=false. Explica que o km está no cartão.
+  NÃO pesquisar de novo. intent=clarify ou answer_from_results, resultsTopic=distance, shouldSearch=false.
 - EXCEPÇÃO — procura ampla (NÃO perguntes classe):
   "lista/listar/mostra/apresenta os colégios de Luanda", "todos os colégios", "todas as opções",
   "vários filhos", "desde a infância até ao médio", "depois eu vou avaliar" →
@@ -308,7 +332,7 @@ Opcionais: cantina, inglês, informática, integral, tipoEnsino, turno, browseWi
   "perto de mim" NÃO é município. Nunca grave "mim", "preferência", "qualquer", "aqui" como município.
 - Orçamento: só preencher precoMax se houver número claro OU se disser explicitamente
   "qualquer valor" / "sem preferência" / "indiferente" → precoMax=150000.
-  "gratuita" / "gratuito" / "custo zero" / "sem custo" / "ensino grátis" → precoMax=0 (válido).
+  "gratuita" / "gratuito" / "custo zero" / "sem custo" / "ensino grátis" → precoMax=0 (válido) — MAS só se for um pedido de PROCURA, não se for pergunta sobre resultados já listados.
   Frases como "orçamento apertado", "barato", "económico" NÃO são número — não inventes precoMax; pergunta um valor máximo em Kz com empatia.
 - tipoEnsino: "pública" / "escola pública" → "Pública"; "privada" / "colégio privado" → "Privado"; semi-privado; internacional.
 - Transporte: sim/preciso → true; não/nao/opcional/não preciso/indiferente → false.
@@ -321,7 +345,8 @@ Responde APENAS JSON válido (sem texto fora do JSON):
 {
   "needsPatch": { "municipio"?: string, "provincia"?: string, "classe"?: string, "precoMax"?: number|null, "transporte"?: boolean|null, "cantina"?: boolean|null, "ingles"?: boolean|null, "informatica"?: boolean|null, "integral"?: boolean|null, "tipoEnsino"?: string, "turno"?: string, "browseWide"?: boolean },
   "reply": string,
-  "intent": "ask_question"|"ready_to_search"|"compare"|"soft_adjust"|"clarify",
+  "intent": "ask_question"|"ready_to_search"|"compare"|"soft_adjust"|"clarify"|"answer_from_results"|"off_topic",
+  "resultsTopic": "free"|"location"|"distance"|"transport"|"cantina"|"cheapest"|"closest"|"rating"|"vacancies"|"services"|"about"|"compare"|"how_to_apply"|"generic"|null,
   "actions": { "shouldSearch": boolean, "compareTop": 2|3|null, "softAdjust": "cheaper"|"only_transport"|"no_transport"|null }
 }`;
   }
@@ -334,7 +359,34 @@ Responde APENAS JSON válido (sem texto fora do JSON):
     llm: ConciergeLlmResult,
     det: ConciergeLlmResult,
     current: NeedsProfile,
+    hasResults = false,
   ): ConciergeLlmResult {
+    if (
+      det.intent === 'answer_from_results' ||
+      det.intent === 'off_topic' ||
+      (det.intent === 'clarify' && det.actions.shouldSearch === false)
+    ) {
+      return {
+        ...det,
+        reply: det.reply || llm.reply,
+        resultsTopic: det.resultsTopic ?? llm.resultsTopic ?? null,
+      };
+    }
+
+    if (
+      hasResults &&
+      (llm.intent === 'answer_from_results' ||
+        (llm.resultsTopic && llm.actions?.shouldSearch === false))
+    ) {
+      return {
+        needsPatch: {},
+        reply: llm.reply || det.reply,
+        intent: 'answer_from_results',
+        actions: { shouldSearch: false, compareTop: null, softAdjust: null },
+        resultsTopic: llm.resultsTopic ?? det.resultsTopic ?? 'generic',
+      };
+    }
+
     const patch: Partial<NeedsProfile> = {
       ...llm.needsPatch,
       ...det.needsPatch,
@@ -363,7 +415,7 @@ Responde APENAS JSON válido (sem texto fora do JSON):
       typeof llm.reply === 'string' && llm.reply.trim()
         ? llm.reply.trim()
         : '';
-    
+
     const detTakesReply =
       detBlocksSearch ||
       shouldSearch ||
@@ -388,6 +440,7 @@ Responde APENAS JSON válido (sem texto fora do JSON):
         compareTop: det.actions.compareTop ?? llm.actions?.compareTop ?? null,
         softAdjust: det.actions.softAdjust ?? llm.actions?.softAdjust ?? null,
       },
+      resultsTopic: llm.resultsTopic ?? det.resultsTopic ?? null,
     };
   }
 
@@ -451,6 +504,10 @@ Responde APENAS JSON válido (sem texto fora do JSON):
           : parseConciergeTurnDeterministic('', merged).reply,
       intent: raw.intent ?? (ready ? 'ready_to_search' : 'ask_question'),
       actions,
+      resultsTopic:
+        typeof (raw as { resultsTopic?: string }).resultsTopic === 'string'
+          ? ((raw as { resultsTopic: ResultsAnswerTopic }).resultsTopic)
+          : null,
     };
   }
 }

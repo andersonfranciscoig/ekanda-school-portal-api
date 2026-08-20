@@ -42,13 +42,35 @@ export type ConciergeTurnIntent =
   | 'ready_to_search'
   | 'compare'
   | 'soft_adjust'
-  | 'clarify';
+  | 'clarify'
+  | 'answer_from_results'
+  | 'off_topic';
+
+/** Subtipo quando intent = answer_from_results */
+export type ResultsAnswerTopic =
+  | 'free'
+  | 'location'
+  | 'distance'
+  | 'transport'
+  | 'cantina'
+  | 'cheapest'
+  | 'closest'
+  | 'rating'
+  | 'vacancies'
+  | 'services'
+  | 'about'
+  | 'compare'
+  | 'how_to_apply'
+  | 'schedule_visit'
+  | 'generic';
 
 export type ConciergeLlmResult = {
   needsPatch: Partial<NeedsProfile>;
   reply: string;
   intent: ConciergeTurnIntent;
   actions: ConciergeActions;
+  /** Presente em answer_from_results / clarify de distância */
+  resultsTopic?: ResultsAnswerTopic | null;
 };
 
 export const EMPTY_NEEDS: NeedsProfile = {
@@ -67,7 +89,7 @@ export const EMPTY_NEEDS: NeedsProfile = {
 };
 
 export const WELCOME_MESSAGE =
-  'Olá! Sou o assistente da Ekanda.\n\nEstou aqui para o ajudar a encontrar escolas e colégios — instituições públicas e privadas — que façam sentido para a sua família: zona, classe, orçamento e o que for importante para vocês.\n\nPode escrever à vontade, como se estivesse a falar comigo. Por exemplo: «Procuro escola pública gratuita em Luanda» ou «5.ª classe em Talatona, até 80 mil.»';
+  'Olá! Sou o assistente da Ekanda.\n\nEstou aqui para o ajudar a encontrar escolas e colégios — instituições públicas e privadas — que façam sentido para a sua família: zona, classe, orçamento e o que for importante para vocês.\n\nPode escrever à vontade. Por exemplo: «Procuro escola pública gratuita em Luanda» ou «5.ª classe em Talatona, até 80 mil.» Depois de ver opções, pode perguntar «qual é gratuita?», «onde fica?» ou «qual está mais perto».';
 
 export const ALLOWED_VISIT_TIMES = [
   '09:00',

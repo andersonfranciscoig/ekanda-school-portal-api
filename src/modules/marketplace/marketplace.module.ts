@@ -43,6 +43,7 @@ import { PrismaReviewRepository } from './infrastructure/persistence/prisma/pris
     AddSchoolToFavoritesUseCase,
     RemoveSchoolFromFavoritesUseCase,
     ListMyFavoriteSchoolsUseCase,
+    PrismaMarketplaceSearchQuery,
   ],
 })
 export class MarketplaceModule {}
