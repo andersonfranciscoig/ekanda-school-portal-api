@@ -53,6 +53,16 @@ enum SchoolPublicProfileLayout {
   CAMPUS
 }
 
+/// Paletas fechadas do perfil público (só IDs — CSS no frontend).
+enum SchoolPublicProfilePalette {
+  EKANDA
+  LAGOA
+  OCEANO
+  SOL
+  FLORESTA
+  AREIA
+}
+
 enum SubscriptionStatus {
   PENDING
   ACTIVE
@@ -282,6 +292,8 @@ model School {
   instagram           String?
   facebook            String?
   publicProfileLayout SchoolPublicProfileLayout @default(CLASSIC)
+  publicProfilePalette SchoolPublicProfilePalette @default(EKANDA)
+  publicProfileSectionOrder Json?
   servicesConfiguredAt DateTime?
   submittedForReviewAt DateTime?
   rejectionReason      String?

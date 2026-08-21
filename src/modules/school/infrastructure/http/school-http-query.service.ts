@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,7 @@ import {
   Prisma,
   SchoolMembershipRole,
   SchoolPublicProfileLayout,
+  SchoolPublicProfilePalette,
   SchoolServiceCatalogId as PrismaSchoolServiceCatalogId,
   SchoolStatus,
 } from '@prisma/client';
@@ -382,15 +384,52 @@ export class SchoolHttpQueryService {
     userId: string,
     layout: SchoolPublicProfileLayout,
   ) {
+    return this.updatePublicProfileAppearance(schoolId, userId, { layout });
+  }
+
+  async updatePublicProfileAppearance(
+    schoolId: string,
+    userId: string,
+    input: {
+      layout?: SchoolPublicProfileLayout;
+      palette?: SchoolPublicProfilePalette;
+      sectionOrder?: string[] | null;
+    },
+  ) {
     await this.assertMembership(schoolId, userId, [
       SchoolMembershipRole.OWNER,
       SchoolMembershipRole.ADMIN,
     ]);
 
+    if (
+      input.layout === undefined &&
+      input.palette === undefined &&
+      input.sectionOrder === undefined
+    ) {
+      throw new BadRequestException('Indique layout, palette ou sectionOrder.');
+    }
+
     const school = await this.prisma.school.update({
       where: { id: schoolId },
-      data: { publicProfileLayout: layout },
-      select: { id: true, slug: true, publicProfileLayout: true },
+      data: {
+        ...(input.layout !== undefined ? { publicProfileLayout: input.layout } : {}),
+        ...(input.palette !== undefined ? { publicProfilePalette: input.palette } : {}),
+        ...(input.sectionOrder !== undefined
+          ? {
+              publicProfileSectionOrder:
+                input.sectionOrder === null
+                  ? Prisma.DbNull
+                  : (input.sectionOrder as Prisma.InputJsonValue),
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        slug: true,
+        publicProfileLayout: true,
+        publicProfilePalette: true,
+        publicProfileSectionOrder: true,
+      },
     });
 
     return school;

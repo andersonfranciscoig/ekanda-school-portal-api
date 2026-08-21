@@ -53,6 +53,10 @@ import { SyncSchoolServicesHttpDto } from '../dto/sync-school-services.http-dto'
 import { CreateOrUpdateSchoolPriceHttpDto } from '../dto/create-or-update-school-price.http-dto';
 import { CreateOrUpdateSchoolGalleryHttpDto } from '../dto/create-or-update-school-gallery.http-dto';
 import { UpdatePublicProfileLayoutHttpDto } from '../dto/update-public-profile-layout.http-dto';
+import {
+  normalizeSectionOrder,
+  UpdatePublicProfileAppearanceHttpDto,
+} from '../dto/update-public-profile-appearance.http-dto';
 import { SchoolHttpQueryService } from '../school-http-query.service';
 import { UploadFileInput } from '../../../../../shared/application/ports/file-storage.port';
 
@@ -607,6 +611,27 @@ export class SchoolsController {
       dto.layout,
     );
     return ok(data, 'Public profile layout updated');
+  }
+
+  @Patch(':schoolId/public-profile-appearance')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Personalizar perfil público (layout, paleta e ordem de secções)',
+  })
+  async updatePublicProfileAppearance(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdatePublicProfileAppearanceHttpDto,
+  ) {
+    const data = await this.queries.updatePublicProfileAppearance(schoolId, user.id, {
+      ...(dto.layout !== undefined ? { layout: dto.layout } : {}),
+      ...(dto.palette !== undefined ? { palette: dto.palette } : {}),
+      ...(dto.sectionOrder !== undefined
+        ? { sectionOrder: normalizeSectionOrder(dto.sectionOrder) }
+        : {}),
+    });
+    return ok(data, 'Public profile appearance updated');
   }
 
   @Get(':id')
