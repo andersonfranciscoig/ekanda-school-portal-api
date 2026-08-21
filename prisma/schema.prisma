@@ -1066,13 +1066,14 @@ enum BetaTesterType {
 
 /// Configuração global da plataforma (singleton — id fixo "default").
 model PlatformSetting {
-  id                   String   @id @default("default")
-  betaEnabled          Boolean  @default(false)
-  whatsappCommunityUrl String?
-  betaLimitGuardian    Int      @default(50)
-  betaLimitSchoolOwner Int      @default(20)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                         String   @id @default("default")
+  betaEnabled                Boolean  @default(false)
+  whatsappCommunityUrl       String?
+  betaLimitGuardian          Int      @default(50)
+  betaLimitSchoolOwner       Int      @default(20)
+  autoNifVerificationEnabled Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   @@map("platform_settings")
 }

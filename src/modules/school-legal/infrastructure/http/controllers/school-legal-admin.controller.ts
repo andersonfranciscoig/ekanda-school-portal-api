@@ -70,6 +70,23 @@ export class SchoolLegalAdminController {
     );
   }
 
+  @Post('schools/:schoolId/legal/nif/verify-auto')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validar NIF automaticamente via consulta AGT (toggle admin)' })
+  async verifyAuto(
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return ok(
+      await this.legal.verifyNifAutomatic(schoolId, {
+        userId: user.id,
+        name: user.email,
+        triggeredBy: 'ADMIN',
+      }),
+      'NIF verified automatically',
+    );
+  }
+
   @Post('schools/:schoolId/legal/nif/reject')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rejeitar NIF submetido com motivo' })

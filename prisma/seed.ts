@@ -203,6 +203,7 @@ async function main() {
       whatsappCommunityUrl: null,
       betaLimitGuardian: 50,
       betaLimitSchoolOwner: 20,
+      autoNifVerificationEnabled: false,
     },
     update: {},
   });

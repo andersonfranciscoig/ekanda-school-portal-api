@@ -39,7 +39,8 @@ export function isValidNifFormat(nif: string): boolean {
   return NIF_PATTERN.test(normalizeNif(nif));
 }
 
-export function autoNifVerificationEnabled(): boolean {
+export function autoNifEnvForceDisabled(): boolean {
   const raw = process.env.SCHOOL_LEGAL_AUTO_NIF_ENABLED?.trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+  if (!raw) return false;
+  return raw === '0' || raw === 'false' || raw === 'off' || raw === 'no';
 }

@@ -28,6 +28,10 @@ export type PlatformSettingsDto = {
   whatsappCommunityUrl: string | null;
   betaLimitGuardian: number;
   betaLimitSchoolOwner: number;
+  /** Validação automática de NIF via AGT (default false). */
+  autoNifVerificationEnabled: boolean;
+  /** True quando AGT_NIF_LOOKUP_BASE_URL está definida. */
+  autoNifProviderConfigured: boolean;
   betaSlots: BetaSlotsDto;
   updatedAt: string;
 };
@@ -162,16 +166,32 @@ export class PlatformBetaService {
     }
   }
 
-  async getSettings(): Promise<PlatformSettingsDto> {
-    const row = await this.ensureSettings();
+  private isAgtNifProviderConfigured(): boolean {
+    return Boolean(this.config.get<string>('AGT_NIF_LOOKUP_BASE_URL')?.trim());
+  }
+
+  private async toSettingsDto(row: {
+    betaEnabled: boolean;
+    whatsappCommunityUrl: string | null;
+    betaLimitGuardian: number;
+    betaLimitSchoolOwner: number;
+    autoNifVerificationEnabled: boolean;
+    updatedAt: Date;
+  }): Promise<PlatformSettingsDto> {
     return {
       betaEnabled: row.betaEnabled,
       whatsappCommunityUrl: row.whatsappCommunityUrl,
       betaLimitGuardian: row.betaLimitGuardian,
       betaLimitSchoolOwner: row.betaLimitSchoolOwner,
+      autoNifVerificationEnabled: row.autoNifVerificationEnabled,
+      autoNifProviderConfigured: this.isAgtNifProviderConfigured(),
       betaSlots: await this.buildSlots(row),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  async getSettings(): Promise<PlatformSettingsDto> {
+    return this.toSettingsDto(await this.ensureSettings());
   }
 
   async updateSettings(input: {
@@ -179,6 +199,7 @@ export class PlatformBetaService {
     whatsappCommunityUrl?: string | null;
     betaLimitGuardian?: number;
     betaLimitSchoolOwner?: number;
+    autoNifVerificationEnabled?: boolean;
   }): Promise<PlatformSettingsDto> {
     await this.ensureSettings();
     const row = await this.prisma.platformSetting.update({
@@ -198,16 +219,12 @@ export class PlatformBetaService {
         ...(input.betaLimitSchoolOwner !== undefined
           ? { betaLimitSchoolOwner: Math.max(0, input.betaLimitSchoolOwner) }
           : {}),
+        ...(input.autoNifVerificationEnabled !== undefined
+          ? { autoNifVerificationEnabled: input.autoNifVerificationEnabled }
+          : {}),
       },
     });
-    return {
-      betaEnabled: row.betaEnabled,
-      whatsappCommunityUrl: row.whatsappCommunityUrl,
-      betaLimitGuardian: row.betaLimitGuardian,
-      betaLimitSchoolOwner: row.betaLimitSchoolOwner,
-      betaSlots: await this.buildSlots(row),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return this.toSettingsDto(row);
   }
 
   async requestAccess(input: {

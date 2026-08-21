@@ -37,6 +37,10 @@ export class PatchPlatformSettingsBodyDto {
   @Min(0)
   @Max(10_000)
   betaLimitSchoolOwner?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  autoNifVerificationEnabled?: boolean;
 }
 
 export class BetaAccessRequestBodyDto {

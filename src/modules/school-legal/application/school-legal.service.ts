@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   NotificationType,
@@ -21,8 +22,9 @@ import {
 import { SchoolHttpQueryService } from '../../school/infrastructure/http/school-http-query.service';
 import { MailService } from '../../mail/application/mail.service';
 import { InAppNotificationService } from '../../notification/application/in-app-notification.service';
+import { PlatformBetaService } from '../../platform-beta/application/platform-beta.service';
 import {
-  autoNifVerificationEnabled,
+  autoNifEnvForceDisabled,
   computeNifDeadline,
   daysRemainingUntil,
   isValidNifFormat,
@@ -30,6 +32,11 @@ import {
   needsNifSubmission,
   normalizeNif,
 } from './school-legal.constants';
+import {
+  NIF_LOOKUP_PORT,
+  type NifLookupPort,
+  type NifLookupSnapshot,
+} from './ports/nif-lookup.port';
 
 type SectionUnread = Record<string, boolean>;
 
@@ -201,6 +208,7 @@ function presentOverview(
     sectionUnread: Prisma.JsonValue;
     nifDeadlineAt: Date | null;
   },
+  autoNifVerificationEnabled: boolean,
 ): SchoolLegalOverviewDto {
   const unread = parseSectionUnread(profile.sectionUnread);
   const nifUnread = Boolean(unread[LEGAL_SECTION_NIF.id]);
@@ -210,7 +218,7 @@ function presentOverview(
     nif: presentNif(profile),
     nifDeadline: presentNifDeadline(profile),
     hasUnreadUpdates: Object.values(unread).some(Boolean),
-    autoNifVerificationEnabled: autoNifVerificationEnabled(),
+    autoNifVerificationEnabled,
     sections: [
       {
         ...LEGAL_SECTION_NIF,
@@ -228,9 +236,25 @@ export class SchoolLegalService {
     private readonly schoolQueries: SchoolHttpQueryService,
     private readonly mail: MailService,
     private readonly notifications: InAppNotificationService,
+    private readonly platform: PlatformBetaService,
+    @Inject(NIF_LOOKUP_PORT)
+    private readonly nifLookup: NifLookupPort,
     @Inject(AUDIT_LOGGER)
     private readonly audit: AuditLogger,
   ) {}
+
+  private async isAutoNifEnabled(): Promise<boolean> {
+    if (autoNifEnvForceDisabled()) return false;
+    const settings = await this.platform.ensureSettings();
+    return Boolean(settings.autoNifVerificationEnabled);
+  }
+
+  private async present(
+    schoolId: string,
+    profile: Parameters<typeof presentOverview>[1],
+  ): Promise<SchoolLegalOverviewDto> {
+    return presentOverview(schoolId, profile, await this.isAutoNifEnabled());
+  }
 
   async getOverview(schoolId: string, userId: string): Promise<SchoolLegalOverviewDto> {
     await this.schoolQueries.assertMembership(schoolId, userId, [
@@ -239,7 +263,7 @@ export class SchoolLegalService {
     ]);
 
     const profile = await this.syncNifDeadline(await this.ensureProfile(schoolId, userId));
-    return presentOverview(schoolId, profile);
+    return this.present(schoolId, profile);
   }
 
   async submitNif(
@@ -321,6 +345,18 @@ export class SchoolLegalService {
       orderBy: { createdAt: 'asc' },
     });
 
+    if (await this.isAutoNifEnabled()) {
+      try {
+        return await this.verifyNifAutomatic(schoolId, {
+          userId,
+          name: 'Sistema (AGT)',
+          triggeredBy: 'SUBMIT',
+        });
+      } catch {
+        // Mantém SUBMITTED e segue o fluxo manual (ops + colégio).
+      }
+    }
+
     this.mail.sendSchoolNifSubmittedOps({
       schoolId,
       schoolName: school.name,
@@ -348,7 +384,7 @@ export class SchoolLegalService {
       metadata: { schoolId, sectionId: LEGAL_SECTION_NIF.id },
     });
 
-    return presentOverview(schoolId, profile);
+    return this.present(schoolId, profile);
   }
 
   async markSectionRead(schoolId: string, userId: string, sectionId: string) {
@@ -375,7 +411,7 @@ export class SchoolLegalService {
     });
     if (!profile) return null;
     const synced = await this.syncNifDeadline(profile);
-    return presentOverview(schoolId, synced);
+    return this.present(schoolId, synced);
   }
 
   async verifyNifManual(
@@ -394,79 +430,118 @@ export class SchoolLegalService {
       );
     }
 
-    const now = new Date();
-    const unread = parseSectionUnread(profile?.sectionUnread ?? {});
+    const updated = await this.markNifVerified({
+      schoolId,
+      schoolName: school.name,
+      nif: profile.nif,
+      actorUserId: admin.userId,
+      actorName: admin.name,
+      mode: SchoolNifVerificationMode.MANUAL,
+      sectionUnread: profile.sectionUnread,
+      lookupSnapshot: null,
+      auditAction: 'NIF_VERIFIED_MANUAL',
+    });
+
+    return this.present(schoolId, updated);
+  }
+
+  /**
+   * Validação automática via porta AGT (contrato isolado).
+   * Requer toggle admin activo + provider configurado (`AGT_NIF_LOOKUP_BASE_URL`).
+   */
+  async verifyNifAutomatic(
+    schoolId: string,
+    actor: { userId: string; name: string; triggeredBy?: 'ADMIN' | 'SUBMIT' },
+  ): Promise<SchoolLegalOverviewDto> {
+    if (!(await this.isAutoNifEnabled())) {
+      throw new BadRequestException(
+        'Validação automática de NIF está desactivada. Active-a em Configurações (admin).',
+      );
+    }
+    if (!this.nifLookup.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Consulta AGT ainda não configurada. Defina AGT_NIF_LOOKUP_BASE_URL após o credenciamento.',
+      );
+    }
+
+    const school = await this.prisma.school.findUnique({ where: { id: schoolId } });
+    if (!school) throw new NotFoundException('Colégio não encontrado.');
+
+    const profile = await this.prisma.schoolLegalProfile.findUnique({
+      where: { schoolId },
+    });
+    if (!profile?.nif || profile.nifStatus !== SchoolNifStatus.SUBMITTED) {
+      throw new BadRequestException(
+        'Só é possível validar automaticamente NIF no estado SUBMITTED.',
+      );
+    }
+
+    const lookup = await this.nifLookup.lookup(profile.nif);
+
+    if (lookup.verdict === 'ACTIVE') {
+      const updated = await this.markNifVerified({
+        schoolId,
+        schoolName: school.name,
+        nif: profile.nif,
+        actorUserId: actor.userId,
+        actorName: actor.name,
+        mode: SchoolNifVerificationMode.AUTOMATIC,
+        sectionUnread: profile.sectionUnread,
+        lookupSnapshot: lookup.snapshot,
+        auditAction: 'NIF_VERIFIED_AUTO',
+        auditExtra: { triggeredBy: actor.triggeredBy ?? 'ADMIN', verdict: lookup.verdict },
+      });
+      return this.present(schoolId, updated);
+    }
+
+    const reason =
+      lookup.verdict === 'NOT_FOUND'
+        ? 'NIF não encontrado no registo AGT.'
+        : lookup.verdict === 'INACTIVE'
+          ? `Contribuinte inactivo na AGT${lookup.snapshot.estado ? ` (estado: ${lookup.snapshot.estado})` : ''}.`
+          : 'Não foi possível confirmar o estado activo do NIF na AGT. Validação manual necessária.';
+
+    if (lookup.verdict === 'UNKNOWN') {
+      throw new BadRequestException(reason);
+    }
+
+    // INACTIVE / NOT_FOUND → rejeição automática
+    const unread = parseSectionUnread(profile.sectionUnread);
     unread[LEGAL_SECTION_NIF.id] = true;
 
-    const updated = await this.prisma.schoolLegalProfile.upsert({
+    const updated = await this.prisma.schoolLegalProfile.update({
       where: { schoolId },
-      create: {
-        id: randomUUID(),
-        schoolId,
-        nifStatus: SchoolNifStatus.VERIFIED,
-        verifiedAt: now,
-        verifiedByUserId: admin.userId,
-        verifiedByName: admin.name,
-        verificationMode: SchoolNifVerificationMode.MANUAL,
+      data: {
+        nifStatus: SchoolNifStatus.REJECTED,
+        rejectionReason: reason,
+        verifiedAt: null,
+        verifiedByUserId: null,
+        verifiedByName: null,
+        verificationMode: null,
+        lookupSnapshot: lookup.snapshot as unknown as Prisma.InputJsonValue,
         sectionUnread: unread as Prisma.InputJsonValue,
-        nifDeadlineAt: null,
-        nifReminderSentAt: null,
-      },
-      update: {
-        nifStatus: SchoolNifStatus.VERIFIED,
-        verifiedAt: now,
-        verifiedByUserId: admin.userId,
-        verifiedByName: admin.name,
-        verificationMode: SchoolNifVerificationMode.MANUAL,
-        sectionUnread: unread as Prisma.InputJsonValue,
-        nifDeadlineAt: null,
-        nifReminderSentAt: null,
       },
     });
 
     await this.audit.log({
-      actorUserId: admin.userId,
-      action: 'NIF_VERIFIED_MANUAL',
+      actorUserId: actor.userId,
+      action: 'NIF_REJECTED',
       entity: 'SCHOOL_LEGAL',
       entityId: schoolId,
       metadata: {
-        nif: updated.nif,
+        nif: profile.nif,
         entityLabel: school.name,
-        mode: 'MANUAL',
-        actorName: admin.name,
+        reason,
+        actorName: actor.name,
+        mode: 'AUTOMATIC',
+        verdict: lookup.verdict,
+        triggeredBy: actor.triggeredBy ?? 'ADMIN',
       },
     });
 
-    const ownerMembership = await this.prisma.schoolMembership.findFirst({
-      where: {
-        schoolId,
-        role: SchoolMembershipRole.OWNER,
-        status: 'ACTIVE',
-      },
-      include: { user: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    const owner = ownerMembership?.user;
+    await this.notifyOwnerNifRejected(schoolId, school.name, reason);
 
-    if (owner?.id) {
-      await this.createLegalNotification({
-        userId: owner.id,
-        schoolId,
-        title: 'NIF validado',
-        body: 'A equipa Ekanda validou o NIF do seu colégio. Consulte o estado na área Jurídica.',
-      });
-    }
-
-    if (owner?.email && updated.nif) {
-      this.mail.sendSchoolNifVerified({
-        email: owner.email,
-        ownerName: owner.firstName?.trim() || owner.email,
-        schoolName: school.name,
-        nif: updated.nif,
-      });
-    }
-
-    return presentOverview(schoolId, updated);
+    return this.present(schoolId, updated);
   }
 
   async rejectNif(
@@ -520,36 +595,9 @@ export class SchoolLegalService {
       },
     });
 
-    const ownerMembership = await this.prisma.schoolMembership.findFirst({
-      where: {
-        schoolId,
-        role: SchoolMembershipRole.OWNER,
-        status: 'ACTIVE',
-      },
-      include: { user: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    const owner = ownerMembership?.user;
+    await this.notifyOwnerNifRejected(schoolId, school.name, trimmed);
 
-    if (owner?.id) {
-      await this.createLegalNotification({
-        userId: owner.id,
-        schoolId,
-        title: 'NIF não validado',
-        body: `A validação do NIF do colégio foi recusada. Motivo: ${trimmed}`,
-      });
-    }
-
-    if (owner?.email) {
-      this.mail.sendSchoolNifRejected({
-        email: owner.email,
-        ownerName: owner.firstName?.trim() || owner.email,
-        schoolName: school.name,
-        reason: trimmed,
-      });
-    }
-
-    return presentOverview(schoolId, updated);
+    return this.present(schoolId, updated);
   }
 
   async getLegalSummary(): Promise<AdminLegalSummaryDto> {
@@ -849,6 +897,120 @@ export class SchoolLegalService {
         sectionUnread: {} as Prisma.InputJsonValue,
       },
     });
+  }
+
+  private async markNifVerified(input: {
+    schoolId: string;
+    schoolName: string;
+    nif: string;
+    actorUserId: string;
+    actorName: string;
+    mode: SchoolNifVerificationMode;
+    sectionUnread: Prisma.JsonValue;
+    lookupSnapshot: NifLookupSnapshot | null;
+    auditAction: 'NIF_VERIFIED_MANUAL' | 'NIF_VERIFIED_AUTO';
+    auditExtra?: Record<string, unknown>;
+  }) {
+    const now = new Date();
+    const unread = parseSectionUnread(input.sectionUnread);
+    unread[LEGAL_SECTION_NIF.id] = true;
+
+    const updated = await this.prisma.schoolLegalProfile.update({
+      where: { schoolId: input.schoolId },
+      data: {
+        nifStatus: SchoolNifStatus.VERIFIED,
+        verifiedAt: now,
+        verifiedByUserId: input.actorUserId,
+        verifiedByName: input.actorName,
+        verificationMode: input.mode,
+        rejectionReason: null,
+        lookupSnapshot: input.lookupSnapshot
+          ? (input.lookupSnapshot as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+        sectionUnread: unread as Prisma.InputJsonValue,
+        nifDeadlineAt: null,
+        nifReminderSentAt: null,
+      },
+    });
+
+    await this.audit.log({
+      actorUserId: input.actorUserId,
+      action: input.auditAction,
+      entity: 'SCHOOL_LEGAL',
+      entityId: input.schoolId,
+      metadata: {
+        nif: input.nif,
+        entityLabel: input.schoolName,
+        mode: input.mode,
+        actorName: input.actorName,
+        ...(input.auditExtra ?? {}),
+      },
+    });
+
+    const ownerMembership = await this.prisma.schoolMembership.findFirst({
+      where: {
+        schoolId: input.schoolId,
+        role: SchoolMembershipRole.OWNER,
+        status: 'ACTIVE',
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const owner = ownerMembership?.user;
+
+    if (owner?.id) {
+      await this.createLegalNotification({
+        userId: owner.id,
+        schoolId: input.schoolId,
+        title: 'NIF validado',
+        body:
+          input.mode === SchoolNifVerificationMode.AUTOMATIC
+            ? 'O NIF do seu colégio foi validado automaticamente junto da AGT. Consulte o estado na área Jurídica.'
+            : 'A equipa Ekanda validou o NIF do seu colégio. Consulte o estado na área Jurídica.',
+      });
+    }
+
+    if (owner?.email) {
+      this.mail.sendSchoolNifVerified({
+        email: owner.email,
+        ownerName: owner.firstName?.trim() || owner.email,
+        schoolName: input.schoolName,
+        nif: input.nif,
+      });
+    }
+
+    return updated;
+  }
+
+  private async notifyOwnerNifRejected(schoolId: string, schoolName: string, reason: string) {
+    const ownerMembership = await this.prisma.schoolMembership.findFirst({
+      where: {
+        schoolId,
+        role: SchoolMembershipRole.OWNER,
+        status: 'ACTIVE',
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const owner = ownerMembership?.user;
+
+    if (owner?.id) {
+      await this.createLegalNotification({
+        userId: owner.id,
+        schoolId,
+        title: 'NIF não validado',
+        body: `A validação do NIF do colégio foi recusada. Motivo: ${reason}`,
+      });
+    }
+
+    if (owner?.email) {
+      this.mail.sendSchoolNifRejected({
+        email: owner.email,
+        ownerName: owner.firstName?.trim() || owner.email,
+        schoolName,
+        reason,
+      });
+    }
   }
 
   private async createLegalNotification(input: {
